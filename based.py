@@ -9,6 +9,7 @@ import sys
 import os
 
 accounts = {}
+args = None
 
 
 class Buddy:
@@ -324,7 +325,8 @@ def storeAccounts():
     Store accounts in a file.
     """
 
-    with open('accounts.pickle', 'wb') as f:
+    accounts_file = pathlib.Path(args.dir + "/accounts.pickle")
+    with open(accounts_file, "wb") as f:
         # Pickle accounts using the highest protocol available.
         pickle.dump(accounts, f, pickle.HIGHEST_PROTOCOL)
 
@@ -334,11 +336,13 @@ def loadAccounts():
     Load accounts from a file.
     """
 
-    accounts_file = pathlib.Path("accounts.pickle")
+    # make sure path and file exist
+    pathlib.Path(args.dir).mkdir(parents=True, exist_ok=True)
+    accounts_file = pathlib.Path(args.dir + "/accounts.pickle")
     if not accounts_file.exists():
         return
 
-    with open(accounts_file, 'rb') as f:
+    with open(accounts_file, "rb") as f:
         # The protocol version used is detected automatically, so we do not
         # have to specify it.
         global accounts
@@ -370,17 +374,21 @@ def getCommandLineArgs():
                         help="working directory")
     parser.add_argument("-d", "--daemonize", action="store_true",
                         help="daemonize process (default: true)")
+    # use global args variable for storage. TODO: change this?
+    global args
     args = parser.parse_args()
-
-    return args
+    # return args
 
 
 if __name__ == "__main__":
+    # parse command line arguments
+    getCommandLineArgs()
+
     # load accounts
     loadAccounts()
 
     # start server
     try:
-        runServer(getCommandLineArgs())
+        runServer(args)
     except KeyboardInterrupt:
         sys.exit()
