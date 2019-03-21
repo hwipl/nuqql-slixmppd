@@ -36,6 +36,9 @@ class Account:
         self.status = status
         self.buddies = buddies
 
+    def sendMsg(self, user, msg):
+        pass
+
 
 class NuqqlBaseHandler(socketserver.BaseRequestHandler):
     """
@@ -130,7 +133,7 @@ def handleAccountAdd(params):
     return "info: new account added."
 
 
-def handleAccountBuddies(account, params):
+def handleAccountBuddies(acc_id, params):
     """
     Get buddies for a specific account. If params contains "online", filter
     online buddies.
@@ -149,25 +152,49 @@ def handleAccountBuddies(account, params):
     if len(params) >= 1 and params[0].lower() == "online":
         online = True
 
-    # valid account?
-    if account not in accounts.keys():
-        return "error: invalid account"
-
     # get buddies for account
     replies = []
-    for buddy in accounts[account].buddies:
+    for buddy in accounts[acc_id].buddies:
         # filter online buddies if wanted by client
         if online and buddy.status != "Available":
             continue
 
         # construct replies
         reply = "buddy: {0} status: {1} name: {2} alias: {3}".format(
-            account, buddy.status, buddy.name, buddy.alias)
+            acc_id, buddy.status, buddy.name, buddy.alias)
         replies.append(reply)
 
     # return replies as single string with "\r\n" as line separator.
     # BaseHandler.handle will add the final "\r\n"
     return "\r\n".join(replies)
+
+
+def handleAccountSend(acc_id, params):
+    """
+    Send a message to a someone over a specific account.
+
+    Expected format:
+        account <ID> send <username> <msg>
+
+    params does not include "account <ID> send"
+    """
+
+    user = params[0]
+    msg = params[1:]
+
+    # send message to user
+    accounts[acc_id].sendMsg(user, msg)
+
+    # check if it is an existing buddy
+    for buddy in accounts[acc_id].buddies:
+        if buddy.name == user:
+            return ""
+
+    # new buddy; add it to account
+    new_buddy = Buddy(name=user, alias="")
+    accounts[acc_id].buddies.append(new_buddy)
+
+    return ""
 
 
 # def handleAccount(parts, account, command, params):
@@ -185,12 +212,15 @@ def handleAccount(parts):
         params = parts[2:]
     elif len(parts) >= 3:
         # account specific commands
-        account = int(parts[1])     # TODO: check for conversion errors?
+        acc_id = int(parts[1])          # TODO: check for conversion errors?
         command = parts[2]
         params = parts[3:]
+        # valid account?
+        if acc_id not in accounts.keys():
+            return "error: invalid account"
     else:
         # invalid command, ignore
-        return ""
+        return "error: invalid command"
 
     if command == "list":
         return handleAccountList()
@@ -201,7 +231,10 @@ def handleAccount(parts):
         return handleAccountAdd(params)
 
     if command == "buddies":
-        return handleAccountBuddies(account, params)
+        return handleAccountBuddies(acc_id, params)
+
+    if command == "send":
+        return handleAccountSend(acc_id, params)
 
 
 def handleMsg(msg):
