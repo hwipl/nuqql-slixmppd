@@ -7,6 +7,24 @@ import daemon
 import sys
 import os
 
+accounts = {}
+
+
+class Account:
+    """
+    Storage for account specific information
+    """
+
+    def __init__(self, id=0, name="", type="dummy", user="dummy@dummy.com",
+                 password="dummy_password", status="online", buddies=[]):
+        self.id = id
+        self.name = name
+        self.type = type
+        self.user = user
+        self.password = password
+        self.status = status
+        self.buddies = buddies
+
 
 class NuqqlBaseHandler(socketserver.BaseRequestHandler):
     """
@@ -57,15 +75,48 @@ def handleAccountList():
     List all accounts
     """
 
-    return("account list")
+    replies = []
+    for account in accounts.values():
+        reply = "{0} ({1}) {2} {3} [{4}]".format(account.id, account.name,
+                                                 account.type, account.user,
+                                                 account.status)
+        replies.append(reply)
+
+    # return a single string containing "\r\n" as line separator.
+    # BaseHandler.handle will add the final "\r\n"
+    return "\r\n".join(replies)
 
 
 def handleAccountAdd(params):
     """
     Add a new account.
+
+    Expected format:
+        account add xmpp robot@my_jabber_server.com my_password
+
+    params does not include "account add"
     """
 
-    return("account add")
+    # check if there are enough parameters
+    if len(params) < 3:
+        return ""
+
+    # get account information
+    acc_id = len(accounts)
+    acc_type = params[0]
+    acc_user = params[1]
+    acc_pass = params[2]
+    new_acc = Account(id=acc_id, type=acc_type, user=acc_user,
+                      password=acc_pass)
+
+    # make sure the account does not exist
+    for a in accounts.values():
+        if a.type == new_acc.type and a.user == new_acc.user:
+            return "info: account already exists."
+
+    # new account; add it
+    accounts[new_acc.id] = new_acc
+    return "info: new account added."
 
 
 def handleAccountBuddies(account, params):
@@ -79,7 +130,7 @@ def handleAccountBuddies(account, params):
     else:
         online = "all"
 
-    return("account {0}: get {1} buddies".format(account, online))
+    return "account {0}: get {1} buddies".format(account, online)
 
 
 # def handleAccount(parts, account, command, params):
