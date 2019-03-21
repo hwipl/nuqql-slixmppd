@@ -40,12 +40,16 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
             except UnicodeDecodeError:
                 # invalid message format, drop client
                 return
-            handleMsg(msg)
+            reply = handleMsg(msg)
 
-            # print msg and send it back to client
-            # print(msg)
-            # msg = msg + "\r\n"
-            # self.request.sendall(msg.encode())
+            # if there's nothing to send back, just continue
+            if len(reply) == 0:
+                continue
+
+            # construct reply and send it back
+            reply = reply + "\r\n"
+            reply = reply.encode()
+            self.request.sendall(reply)
 
 
 def handleAccountList():
@@ -53,7 +57,7 @@ def handleAccountList():
     List all accounts
     """
 
-    print("account list")
+    return("account list")
 
 
 def handleAccountAdd(params):
@@ -61,7 +65,7 @@ def handleAccountAdd(params):
     Add a new account.
     """
 
-    print("account add")
+    return("account add")
 
 
 def handleAccountBuddies(account, params):
@@ -75,7 +79,7 @@ def handleAccountBuddies(account, params):
     else:
         online = "all"
 
-    print("account {0}: get {1} buddies".format(account, online))
+    return("account {0}: get {1} buddies".format(account, online))
 
 
 # def handleAccount(parts, account, command, params):
@@ -98,7 +102,7 @@ def handleAccount(parts):
         params = parts[3:]
     else:
         # invalid command, ignore
-        return
+        return ""
 
     if command == "list":
         return handleAccountList()
@@ -122,11 +126,12 @@ def handleMsg(msg):
 
     # account specific commands
     if len(parts) >= 2 and parts[0] == "account":
-        handleAccount(parts)
+        return handleAccount(parts)
 
     # others
     # TODO: ver? who?
     # ignore rest for now...
+    return ""
 
 
 def runInetServer(args):
