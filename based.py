@@ -10,6 +10,17 @@ import os
 accounts = {}
 
 
+class Buddy:
+    """
+    Storage for buddy specific information
+    """
+
+    def __init__(self, name="none", alias="none", status="Available"):
+        self.name = name
+        self.alias = alias
+        self.status = status
+
+
 class Account:
     """
     Storage for account specific information
@@ -123,14 +134,40 @@ def handleAccountBuddies(account, params):
     """
     Get buddies for a specific account. If params contains "online", filter
     online buddies.
+
+    Expected format:
+        account <ID> buddies [online]
+
+    params does not include "account <ID> buddies"
+
+    Returned messages should look like:
+        buddy: <acc_id> status: <Offline/Available> name: <name> alias: <alias>
     """
 
+    # filter online buddies?
+    online = False
     if len(params) >= 1 and params[0].lower() == "online":
-        online = "online"
-    else:
-        online = "all"
+        online = True
 
-    return "account {0}: get {1} buddies".format(account, online)
+    # valid account?
+    if account not in accounts.keys():
+        return "error: invalid account"
+
+    # get buddies for account
+    replies = []
+    for buddy in accounts[account].buddies:
+        # filter online buddies if wanted by client
+        if online and buddy.status != "Available":
+            continue
+
+        # construct replies
+        reply = "buddy: {0} status: {1} name: {2} alias: {3}".format(
+            account, buddy.status, buddy.name, buddy.alias)
+        replies.append(reply)
+
+    # return replies as single string with "\r\n" as line separator.
+    # BaseHandler.handle will add the final "\r\n"
+    return "\r\n".join(replies)
 
 
 # def handleAccount(parts, account, command, params):
@@ -148,7 +185,7 @@ def handleAccount(parts):
         params = parts[2:]
     elif len(parts) >= 3:
         # account specific commands
-        account = parts[1]
+        account = int(parts[1])     # TODO: check for conversion errors?
         command = parts[2]
         params = parts[3:]
     else:
