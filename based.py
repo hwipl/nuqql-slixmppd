@@ -3,6 +3,7 @@
 import socketserver
 import argparse
 import pathlib
+import pickle
 import daemon
 import sys
 import os
@@ -130,6 +131,10 @@ def handleAccountAdd(params):
 
     # new account; add it
     accounts[new_acc.id] = new_acc
+
+    # store updated accounts in file
+    storeAccounts()
+
     return "info: new account added."
 
 
@@ -193,6 +198,9 @@ def handleAccountSend(acc_id, params):
     # new buddy; add it to account
     new_buddy = Buddy(name=user, alias="")
     accounts[acc_id].buddies.append(new_buddy)
+
+    # store updated accounts in file
+    storeAccounts()
 
     return ""
 
@@ -311,6 +319,32 @@ def runServer(args):
     return
 
 
+def storeAccounts():
+    """
+    Store accounts in a file.
+    """
+
+    with open('accounts.pickle', 'wb') as f:
+        # Pickle accounts using the highest protocol available.
+        pickle.dump(accounts, f, pickle.HIGHEST_PROTOCOL)
+
+
+def loadAccounts():
+    """
+    Load accounts from a file.
+    """
+
+    accounts_file = pathlib.Path("accounts.pickle")
+    if not accounts_file.exists():
+        return
+
+    with open(accounts_file, 'rb') as f:
+        # The protocol version used is detected automatically, so we do not
+        # have to specify it.
+        global accounts
+        accounts = pickle.load(f)
+
+
 def getCommandLineArgs():
     """
     Parse the command line and return command line arguments:
@@ -342,6 +376,9 @@ def getCommandLineArgs():
 
 
 if __name__ == "__main__":
+    # load accounts
+    loadAccounts()
+
     # start server
     try:
         runServer(getCommandLineArgs())
