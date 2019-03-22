@@ -3,12 +3,14 @@
 import socketserver
 import argparse
 import pathlib
+import logging
 import pickle
 import daemon
 import sys
 import os
 
 accounts = {}
+loggers = {}
 args = None
 
 
@@ -39,7 +41,13 @@ class Account:
         self.buddies = buddies
 
     def sendMsg(self, user, msg):
-        pass
+        """
+        Send message to user. Currently, this only logs the message
+        """
+
+        # log message
+        log_msg = "message: to {0}: {1}".format(user, msg)
+        loggers[self.id].info(log_msg)
 
 
 class NuqqlBaseHandler(socketserver.BaseRequestHandler):
@@ -98,6 +106,10 @@ def handleAccountList():
                                                  account.status)
         replies.append(reply)
 
+    # log event
+    log_msg = "account list: {0}".format(replies)
+    loggers["main"].info(log_msg)
+
     # return a single string containing "\r\n" as line separator.
     # BaseHandler.handle will add the final "\r\n"
     return "\r\n".join(replies)
@@ -136,6 +148,18 @@ def handleAccountAdd(params):
     # store updated accounts in file
     storeAccounts()
 
+    # create mew logger
+    account_dir = args.dir + "/logs/account/{0}".format(a)
+    pathlib.Path(account_dir).mkdir(parents=True, exist_ok=True)
+    account_log = account_dir + "/account.log"
+    loggers[a] = getLogger(a, account_log)
+
+    # log event
+    log_msg = "account new: id {0} type {1} user {2}".format(new_acc.id,
+                                                             new_acc.type,
+                                                             new_acc.user)
+    loggers["main"].info(log_msg)
+
     return "info: new account added."
 
 
@@ -170,6 +194,10 @@ def handleAccountBuddies(acc_id, params):
             acc_id, buddy.status, buddy.name, buddy.alias)
         replies.append(reply)
 
+    # log event
+    log_msg = "account {0} buddies: {1}".format(acc_id, replies)
+    loggers[acc_id].info(log_msg)
+
     # return replies as single string with "\r\n" as line separator.
     # BaseHandler.handle will add the final "\r\n"
     return "\r\n".join(replies)
@@ -202,6 +230,10 @@ def handleAccountSend(acc_id, params):
 
     # store updated accounts in file
     storeAccounts()
+
+    # log event
+    log_msg = "account {0}: new buddy: {1}".format(acc_id, user)
+    loggers[acc_id].info(log_msg)
 
     return ""
 
@@ -320,6 +352,56 @@ def runServer(args):
     return
 
 
+def getLogger(name, file_name):
+    """
+    Create a logger with <name>, that logs to <file_name>
+    """
+
+    # create logger
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+
+    # create handler
+    fh = logging.FileHandler(file_name)
+    fh.setLevel(logging.DEBUG)
+
+    # create formatter
+    formatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s",
+        datefmt="%s")
+
+    # add formatter to handler
+    fh.setFormatter(formatter)
+
+    # add handler to logger
+    logger.addHandler(fh)
+
+    # return logger to caller
+    return logger
+
+
+def initLoggers():
+    """
+    Initialize loggers for main log and account specific logs
+    """
+
+    # make sure logs directory exists
+    logs_dir = args.dir + "/logs"
+    pathlib.Path(logs_dir).mkdir(parents=True, exist_ok=True)
+
+    # main log
+    main_log = logs_dir + "/main.log"
+    loggers["main"] = getLogger("main", main_log)
+
+    # account logs
+    account_dir = logs_dir + "/account"
+    for a in accounts.keys():
+        a_dir = account_dir + "/{0}".format(a)
+        pathlib.Path(a_dir).mkdir(parents=True, exist_ok=True)
+        a_log = a_dir + "/account.log"
+        loggers[a] = getLogger(str(a), a_log)   # logger name must be string
+
+
 def storeAccounts():
     """
     Store accounts in a file.
@@ -386,6 +468,9 @@ if __name__ == "__main__":
 
     # load accounts
     loadAccounts()
+
+    # initialize loggers
+    initLoggers()
 
     # start server
     try:
