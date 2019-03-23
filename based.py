@@ -203,6 +203,28 @@ def handleAccountBuddies(acc_id, params):
     return "\r\n".join(replies)
 
 
+def handleAccountCollect(acc_id, params):
+    """
+    Collect messages for a specific account.
+
+    Expected format:
+        account <ID> collect [time]
+
+    params does not include "account <ID> collect"
+    """
+
+    # collect all messages since <time>?
+    time = 0   # TODO: change it to time of last collect?
+    if len(params) >= 1:
+        time = params[0]
+
+    # log event
+    log_msg = "account {0} collect {1}".format(acc_id, time)
+    loggers[acc_id].info(log_msg)
+
+    return ""   # TODO: collect something and send it back?
+
+
 def handleAccountSend(acc_id, params):
     """
     Send a message to a someone over a specific account.
@@ -273,6 +295,9 @@ def handleAccount(parts):
 
     if command == "buddies":
         return handleAccountBuddies(acc_id, params)
+
+    if command == "collect":
+        return handleAccountCollect(acc_id, params)
 
     if command == "send":
         return handleAccountSend(acc_id, params)
