@@ -101,9 +101,9 @@ def handleAccountList():
 
     replies = []
     for account in accounts.values():
-        reply = "{0} ({1}) {2} {3} [{4}]".format(account.id, account.name,
-                                                 account.type, account.user,
-                                                 account.status)
+        reply = "account: {0} ({1}) {2} {3} [{4}]".format(
+            account.id, account.name, account.type, account.user,
+            account.status)
         replies.append(reply)
 
     # log event
@@ -149,10 +149,11 @@ def handleAccountAdd(params):
     storeAccounts()
 
     # create mew logger
-    account_dir = args.dir + "/logs/account/{0}".format(a)
+    account_dir = args.dir + "/logs/account/{0}".format(acc_id)
     pathlib.Path(account_dir).mkdir(parents=True, exist_ok=True)
     account_log = account_dir + "/account.log"
-    loggers[a] = getLogger(a, account_log)
+    # logger name must be string
+    loggers[acc_id] = getLogger(str(acc_id), account_log)
 
     # log event
     log_msg = "account new: id {0} type {1} user {2}".format(new_acc.id,
