@@ -9,6 +9,7 @@ import argparse
 import pathlib
 import logging
 import pickle
+import socket
 import sys
 import os
 
@@ -16,6 +17,7 @@ import daemon
 
 ACCOUNTS = {}
 LOGGERS = {}
+CALLBACKS = {}
 ARGS = None
 
 
@@ -50,6 +52,10 @@ class Account:
         Send message to user. Currently, this only logs the message
         """
 
+        # try to send message
+        if "send_message" in CALLBACKS:
+            CALLBACKS["send_message"](self, user, msg)
+
         # log message
         log_msg = "message: to {0}: {1}".format(user, msg)
         LOGGERS[self.aid].info(log_msg)
@@ -65,10 +71,35 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
 
     buffer = b""
 
+    def handle_incoming(self):
+        """
+        Handle messages coming from the backend connections
+        """
+
+        # if there is no callback for messages, simply stop here
+        if "get_messages" not in CALLBACKS:
+            return
+
+        for account in ACCOUNTS.values():
+            messages = CALLBACKS["get_messages"](account)
+            for msg in messages:
+                msg = msg + "\r\n"
+                msg = msg.encode()
+                self.request.sendall(msg)
+
     def handle(self):
         # self.request is the client socket
+        self.request.settimeout(0.1)
         while True:
-            self.data = self.request.recv(1024)
+            # handle incoming xmpp messages
+            self.handle_incoming()
+
+            # handle messages from nuqql client
+            try:
+                self.data = self.request.recv(1024)
+            except socket.timeout:
+                continue
+
             # self.buffer += self.data.decode()
             self.buffer += self.data
 
@@ -183,6 +214,12 @@ def handle_account_buddies(acc_id, params):
         buddy: <acc_id> status: <Offline/Available> name: <name> alias: <alias>
     """
 
+    # update buddy list
+    # if "update_buddies" in ACCOUNTS[acc_id].callbacks:
+    #     ACCOUNTS[acc_id].callbacks["update_buddies"](ACCOUNTS[acc_id])
+    if "update_buddies" in CALLBACKS:
+        CALLBACKS["update_buddies"](ACCOUNTS[acc_id])
+
     # filter online buddies?
     online = False
     if len(params) >= 1 and params[0].lower() == "online":
@@ -228,7 +265,12 @@ def handle_account_collect(acc_id, params):
     log_msg = "account {0} collect {1}".format(acc_id, time)
     LOGGERS[acc_id].info(log_msg)
 
-    return ""   # TODO: collect something and send it back?
+    # collect messages
+    if "collect_messages" in CALLBACKS:
+        return "\r\n".join(CALLBACKS["collect_messages"](ACCOUNTS[acc_id]))
+
+    # nothing there
+    return ""
 
 
 def handle_account_send(acc_id, params):
@@ -242,7 +284,7 @@ def handle_account_send(acc_id, params):
     """
 
     user = params[0]
-    msg = params[1:]
+    msg = " ".join(params[1:])      # TODO: do this better?
 
     # send message to user
     ACCOUNTS[acc_id].send_msg(user, msg)
