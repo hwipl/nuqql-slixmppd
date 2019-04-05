@@ -7,6 +7,8 @@ slixmppd
 import sys
 import time
 import asyncio
+import html
+import re
 
 from threading import Thread, Lock
 
@@ -103,9 +105,13 @@ def format_messages(account, messages):
 
     ret = []
     for tstamp, msg in messages:
+        # nuqql expects html-escaped messages; construct them
+        msg_body = msg["body"]
+        msg_body = html.escape(msg_body)
+        msg_body = "<br/>".join(msg_body.split("\n"))
         ret_str = "message: {} {} {} {} {}".format(account.aid, msg["to"],
                                                    tstamp, msg["from"],
-                                                   msg["body"])
+                                                   msg_body)
         ret.append(ret_str)
     return ret
 
@@ -149,9 +155,16 @@ def send_message(account, jid, msg):
 
     xmpp, lock = CONNECTIONS[account.aid]
 
+    # nuqql sends a html-escaped message; construct "plain-text" version and
+    # xhtml version using nuqql's message and use them as message body later
+    html_msg = \
+        '<body xmlns="http://www.w3.org/1999/xhtml">{}</body>'.format(msg)
+    msg = html.unescape(msg)
+    msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
+
     # send message
     lock.acquire()
-    xmpp.send_message(mto=jid, mbody=msg, mtype='chat')
+    xmpp.send_message(mto=jid, mbody=msg, mhtml=html_msg, mtype='chat')
     lock.release()
 
 
@@ -166,6 +179,7 @@ def run_client(account):
 
     # start client connection
     xmpp = NuqqlClient(account.user, account.password)
+    xmpp.register_plugin('xep_0071')
     xmpp.connect()
 
     lock = Lock()
