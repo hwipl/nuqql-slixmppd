@@ -93,9 +93,10 @@ def update_buddies(account):
         connections = xmpp.client_roster.presence(jid)
         status = "offline"
         # check all resources for presence information
-        for pres in connections.values():
+        if connections:
             # if there is a connection, user is at least online
             status = "available"
+        for pres in connections.values():
             # the optional status field shows additional info like
             # "I'm currently away from my computer" which is too long
             # if pres['status']:
