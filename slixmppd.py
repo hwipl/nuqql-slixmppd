@@ -41,6 +41,11 @@ class NuqqlClient(ClientXMPP):
         Session start handler
         """
 
+        # presence types and show types from slixmpp:
+        # types = {'available', 'unavailable', 'error', 'probe', 'subscribe',
+        #          'subscribed', 'unsubscribe', 'unsubscribed'}
+        # showtypes = {'dnd', 'chat', 'xa', 'away'}
+        # empty presence means "available"/"online", so that's ok.
         self.send_presence()
         self.get_roster()
 
@@ -89,8 +94,13 @@ def update_buddies(account):
         status = "offline"
         # check all resources for presence information
         for pres in connections.values():
-            if pres['status']:
-                status = pres["status"]
+            # if there is a connection, user is at least online
+            status = "available"
+            # the optional status field shows additional info like
+            # "I'm currently away from my computer" which is too long
+            # if pres['status']:
+            #     status = pres["status"]
+            # if there is an optional show value, display it instead
             if pres['show']:
                 status = pres['show']
         buddy = based.Buddy(name=jid, alias=alias, status=status)
