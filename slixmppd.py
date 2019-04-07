@@ -9,9 +9,8 @@ import time
 import asyncio
 import html
 import re
-import datetime
 
-from threading import Thread, Lock
+from threading import Thread, Lock, Event
 
 from slixmpp import ClientXMPP
 # from slixmpp.exceptions import IqError, IqTimeout
@@ -21,6 +20,7 @@ import based
 
 # dictionary for all xmpp client connections
 CONNECTIONS = {}
+THREADS = []
 
 
 class NuqqlClient(ClientXMPP):
@@ -206,9 +206,10 @@ def send_message(account, jid, msg):
     lock.release()
 
 
-def run_client(account):
+def run_client(account, ready, running):
     """
-    Run client connection in a new thread
+    Run client connection in a new thread,
+    as long as running Event is set to true.
     """
 
     # get event loop for thread
@@ -222,11 +223,15 @@ def run_client(account):
     xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
     xmpp.connect()
 
+    # save client connection and lock in active connections dictionary
     lock = Lock()
     CONNECTIONS[account.aid] = (xmpp, lock)
 
-    # enter main loop
-    while True:
+    # thread is ready to enter main loop, inform caller
+    ready.set()
+
+    # enter main loop, and keep running until running is set to false
+    while running.is_set():
         lock.acquire()
         xmpp.process(timeout=0.1)
         lock.release()
@@ -239,12 +244,22 @@ def add_account(account):
     Add a new account (from based) and run a new slixmpp client thread for it
     """
 
-    new_thread = Thread(target=run_client, args=(account,))
+    # event to signal thread is ready
+    ready = Event()
+
+    # event to signal if thread should stop
+    running = Event()
+    running.set()
+
+    # create and start thread
+    new_thread = Thread(target=run_client, args=(account, ready, running))
     new_thread.start()
 
-    # hacky: give thread some time initialize everything
-    # TODO: wait for some event?
-    time.sleep(0.1)
+    # save thread in active threads dictionary
+    THREADS.append((new_thread, running))
+
+    # wait until thread initialized everything
+    ready.wait()
 
 
 if __name__ == '__main__':
@@ -273,4 +288,8 @@ if __name__ == '__main__':
     try:
         based.run_server(based.ARGS)
     except KeyboardInterrupt:
+        # try to terminate all threads
+        for thread, running in THREADS:
+            running.clear()
+            thread.join()
         sys.exit()
