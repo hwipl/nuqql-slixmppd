@@ -81,7 +81,11 @@ def update_buddies(account):
     Read buddies from client connection
     """
 
-    xmpp, lock = CONNECTIONS[account.aid]
+    try:
+        xmpp, lock = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return
 
     # clear buddy list
     account.buddies = []
@@ -132,7 +136,11 @@ def get_messages(account):
     Read messages from client connection
     """
 
-    xmpp, lock = CONNECTIONS[account.aid]
+    try:
+        xmpp, lock = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return []
 
     # get messages
     lock.acquire()
@@ -148,7 +156,11 @@ def collect_messages(account):
     Collect all messages from client connection
     """
 
-    xmpp, lock = CONNECTIONS[account.aid]
+    try:
+        xmpp, lock = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return []
 
     # collect messages
     lock.acquire()
@@ -164,7 +176,11 @@ def send_message(account, jid, msg):
     send a message to a jabber id on an account
     """
 
-    xmpp, lock = CONNECTIONS[account.aid]
+    try:
+        xmpp, lock = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return
 
     # nuqql sends a html-escaped message; construct "plain-text" version and
     # xhtml version using nuqql's message and use them as message body later
@@ -205,6 +221,19 @@ def run_client(account):
         time.sleep(0.1)
 
 
+def add_account(account):
+    """
+    Add a new account (from based) and run a new slixmpp client thread for it
+    """
+
+    new_thread = Thread(target=run_client, args=(account,))
+    new_thread.start()
+
+    # hacky: give thread some time initialize everything
+    # TODO: wait for some event?
+    time.sleep(0.1)
+
+
 if __name__ == '__main__':
     # parse command line arguments
     based.get_command_line_args()
@@ -218,10 +247,10 @@ if __name__ == '__main__':
     # start a client connection for every xmpp account in it's own thread
     for acc in based.ACCOUNTS.values():
         if acc.type == "xmpp":
-            t = Thread(target=run_client, args=(acc,))
-            t.start()
+            add_account(acc)
 
     # register callbacks
+    based.CALLBACKS["add_account"] = add_account
     based.CALLBACKS["update_buddies"] = update_buddies
     based.CALLBACKS["get_messages"] = get_messages
     based.CALLBACKS["send_message"] = send_message
