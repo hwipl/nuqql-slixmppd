@@ -59,11 +59,13 @@ class NuqqlClient(ClientXMPP):
             # if message contains a timestamp, use it
             tstamp = msg['delay']['stamp']
             if tstamp:
-                # convert iso format to timestamp in seconds
-                tstamp = datetime.datetime.fromisoformat(tstamp).timestamp()
+                # convert to timestamp in seconds
+                tstamp = tstamp.timestamp()
             else:
                 # if there is no timestamp in message, use current time
                 tstamp = time.time()
+
+            # save timestamp and message in messages list and history
             tstamp = int(tstamp)
             self.messages.append((tstamp, msg))
             self.history.append((tstamp, msg))
