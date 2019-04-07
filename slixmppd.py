@@ -9,6 +9,7 @@ import time
 import asyncio
 import html
 import re
+import datetime
 
 from threading import Thread, Lock
 
@@ -55,7 +56,15 @@ class NuqqlClient(ClientXMPP):
         """
 
         if msg['type'] in ('chat', 'normal'):
-            tstamp = int(time.time())
+            # if message contains a timestamp, use it
+            tstamp = msg['delay']['stamp']
+            if tstamp:
+                # convert iso format to timestamp in seconds
+                tstamp = datetime.datetime.fromisoformat(tstamp).timestamp()
+            else:
+                # if there is no timestamp in message, use current time
+                tstamp = time.time()
+            tstamp = int(tstamp)
             self.messages.append((tstamp, msg))
             self.history.append((tstamp, msg))
 
@@ -206,7 +215,9 @@ def run_client(account):
 
     # start client connection
     xmpp = NuqqlClient(account.user, account.password)
-    xmpp.register_plugin('xep_0071')
+    xmpp.register_plugin('xep_0071')    # XHTML-IM
+    xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
+    xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
     xmpp.connect()
 
     lock = Lock()
