@@ -197,6 +197,11 @@ def handle_account_add(params):
                                                              new_acc.user)
     LOGGERS["main"].info(log_msg)
 
+    # notify callback (if present) about new account
+    if "add_account" in CALLBACKS:
+        CALLBACKS["add_account"](new_acc)
+
+    # inform caller about success
     return "info: new account added."
 
 
