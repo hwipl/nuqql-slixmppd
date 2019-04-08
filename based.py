@@ -9,7 +9,7 @@ import argparse
 import pathlib
 import logging
 import pickle
-import socket
+import select
 import sys
 import os
 
@@ -89,16 +89,24 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         # self.request is the client socket
-        self.request.settimeout(0.1)
         while True:
             # handle incoming xmpp messages
             self.handle_incoming()
 
             # handle messages from nuqql client
-            try:
-                self.data = self.request.recv(1024)
-            except socket.timeout:
+            # wait 0.1 seconds for data to become available
+            reads, unused_writes, errs = select.select([self.request, ], [],
+                                                       [self.request, ], 0.1)
+            if self.request in errs:
+                # something is wrong, drop client
+                return
+
+            if self.request not in reads:
+                # nothing to read; stop here
                 continue
+
+            # read data from socket and add it to buffer
+            self.data = self.request.recv(1024)
 
             # self.buffer += self.data.decode()
             self.buffer += self.data
