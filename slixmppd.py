@@ -262,7 +262,11 @@ def add_account(account):
     ready.wait()
 
 
-if __name__ == '__main__':
+def main():
+    """
+    Main function, initialize everything and start server
+    """
+
     # parse command line arguments
     based.get_command_line_args()
 
@@ -293,3 +297,7 @@ if __name__ == '__main__':
             running.clear()
             thread.join()
         sys.exit()
+
+
+if __name__ == '__main__':
+    main()
