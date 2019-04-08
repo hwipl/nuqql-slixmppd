@@ -28,12 +28,15 @@ class NuqqlClient(ClientXMPP):
     Nuqql Client Class, derived from Slixmpp Client
     """
 
-    def __init__(self, jid, password):
+    def __init__(self, jid, password, lock):
         ClientXMPP.__init__(self, jid, password)
 
         self.add_event_handler("session_start", self.session_start)
         self.add_event_handler("message", self.message)
 
+        self.lock = lock
+        self.buddies = []
+        self.queue = []
         self.history = []
         self.messages = []
 
@@ -67,24 +70,96 @@ class NuqqlClient(ClientXMPP):
 
             # save timestamp and message in messages list and history
             tstamp = int(tstamp)
+            self.lock.acquire()
             self.messages.append((tstamp, msg))
             self.history.append((tstamp, msg))
+            self.lock.release()
 
     def collect(self):
         """
         Collect all messages from message log
         """
 
-        return self.history[:]
+        self.lock.acquire()
+        # create a copy of the history
+        history = self.history[:]
+        self.lock.release()
+
+        # return the copy of the history
+        return history
 
     def get_messages(self):
         """
         Read incoming messages
         """
 
+        self.lock.acquire()
+        # create a copy of the message list, and flush the message list
         messages = self.messages[:]
         self.messages = []
+        self.lock.release()
+
+        # return the copy of the message list
         return messages
+
+    def enqueue_message(self, message_tuple):
+        """
+        Enqueue a message tuple in the message queue
+        Tuple consists of:
+            jid, msg, html_msg, msg_type
+        """
+
+        self.lock.acquire()
+        # just add message tuple to queue
+        self.queue.append(message_tuple)
+        self.lock.release()
+
+    def send_queue(self):
+        """
+        Send all queued messages
+        """
+
+        self.lock.acquire()
+        for message_tuple in self.queue:
+            # create message from message tuple and send it
+            jid, msg, html_msg, mtype = message_tuple
+            self.send_message(mto=jid, mbody=msg, mhtml=html_msg, mtype=mtype)
+        # flush queue
+        self.queue = []
+        self.lock.release()
+
+    def update_buddies(self):
+        """
+        Create a "safe" copy of roster
+        """
+
+        self.lock.acquire()
+        # flush buddy list
+        self.buddies = []
+
+        # get buddies from roster
+        for jid in self.client_roster.keys():
+            alias = self.client_roster[jid]["name"]
+            connections = self.client_roster.presence(jid)
+            status = "offline"
+
+            # check all resources for presence information
+            if connections:
+                # if there is a connection, user is at least online
+                status = "available"
+            for pres in connections.values():
+                # the optional status field shows additional info like
+                # "I'm currently away from my computer" which is too long
+                # if pres['status']:
+                #     status = pres["status"]
+                # if there is an optional show value, display it instead
+                if pres['show']:
+                    status = pres['show']
+
+            # add buddies to buddy list
+            buddy = based.Buddy(name=jid, alias=alias, status=status)
+            self.buddies.append(buddy)
+        self.lock.release()
 
 
 def update_buddies(account):
@@ -93,7 +168,7 @@ def update_buddies(account):
     """
 
     try:
-        xmpp, lock = CONNECTIONS[account.aid]
+        xmpp = CONNECTIONS[account.aid]
     except KeyError:
         # no active connection
         return
@@ -102,26 +177,10 @@ def update_buddies(account):
     account.buddies = []
 
     # parse buddy list and insert buddies into buddy list
-    lock.acquire()
-    for jid in xmpp.client_roster.keys():
-        alias = xmpp.client_roster[jid]["name"]
-        connections = xmpp.client_roster.presence(jid)
-        status = "offline"
-        # check all resources for presence information
-        if connections:
-            # if there is a connection, user is at least online
-            status = "available"
-        for pres in connections.values():
-            # the optional status field shows additional info like
-            # "I'm currently away from my computer" which is too long
-            # if pres['status']:
-            #     status = pres["status"]
-            # if there is an optional show value, display it instead
-            if pres['show']:
-                status = pres['show']
-        buddy = based.Buddy(name=jid, alias=alias, status=status)
+    xmpp.lock.acquire()
+    for buddy in xmpp.buddies:
         account.buddies.append(buddy)
-    lock.release()
+    xmpp.lock.release()
 
 
 def format_messages(account, messages):
@@ -148,15 +207,13 @@ def get_messages(account):
     """
 
     try:
-        xmpp, lock = CONNECTIONS[account.aid]
+        xmpp = CONNECTIONS[account.aid]
     except KeyError:
         # no active connection
         return []
 
     # get messages
-    lock.acquire()
     messages = xmpp.get_messages()
-    lock.release()
 
     # format and return them
     return format_messages(account, messages)
@@ -168,15 +225,13 @@ def collect_messages(account):
     """
 
     try:
-        xmpp, lock = CONNECTIONS[account.aid]
+        xmpp = CONNECTIONS[account.aid]
     except KeyError:
         # no active connection
         return []
 
     # collect messages
-    lock.acquire()
     messages = xmpp.collect()
-    lock.release()
 
     # format and return them
     return format_messages(account, messages)
@@ -188,7 +243,7 @@ def send_message(account, jid, msg):
     """
 
     try:
-        xmpp, lock = CONNECTIONS[account.aid]
+        xmpp = CONNECTIONS[account.aid]
     except KeyError:
         # no active connection
         return
@@ -201,9 +256,7 @@ def send_message(account, jid, msg):
     msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
     # send message
-    lock.acquire()
-    xmpp.send_message(mto=jid, mbody=msg, mhtml=html_msg, mtype='chat')
-    lock.release()
+    xmpp.enqueue_message((jid, msg, html_msg, 'chat'))
 
 
 def run_client(account, ready, running):
@@ -216,27 +269,30 @@ def run_client(account, ready, running):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    # create a new lock for the thread
+    lock = Lock()
+
     # start client connection
-    xmpp = NuqqlClient(account.user, account.password)
+    xmpp = NuqqlClient(account.user, account.password, lock)
     xmpp.register_plugin('xep_0071')    # XHTML-IM
     xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
     xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
     xmpp.connect()
 
-    # save client connection and lock in active connections dictionary
-    lock = Lock()
-    CONNECTIONS[account.aid] = (xmpp, lock)
+    # save client connection in active connections dictionary
+    CONNECTIONS[account.aid] = xmpp
 
     # thread is ready to enter main loop, inform caller
     ready.set()
 
-    # enter main loop, and keep running until running is set to false
+    # enter main loop, and keep running until "running" is set to false
+    # by the KeyboardInterrupt
     while running.is_set():
-        lock.acquire()
+        # process xmpp client for 0.1 seconds, then send pending outgoing
+        # messages and update the (safe copy of the) buddy list
         xmpp.process(timeout=0.1)
-        lock.release()
-        # give other thread some time to get the lock
-        time.sleep(0.1)
+        xmpp.send_queue()
+        xmpp.update_buddies()
 
 
 def add_account(account):
