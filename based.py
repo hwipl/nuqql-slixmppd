@@ -87,6 +87,39 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 msg = msg.encode()
                 self.request.sendall(msg)
 
+    def handle_messages(self):
+        """
+        Try to find complete messages in buffer and handle each
+        """
+
+        # try to find first complete message
+        eom = self.buffer.find(b"\r\n")
+        while eom != -1:
+            # extract message from buffer
+            msg = self.buffer[:eom]
+            self.buffer = self.buffer[eom + 2:]
+
+            # check if there is another complete message, for
+            # next loop iteration
+            eom = self.buffer.find(b"\r\n")
+
+            # start message handling
+            try:
+                msg = msg.decode()
+            except UnicodeDecodeError as error:
+                # invalid message format, drop client
+                return error
+            reply = handle_msg(msg)
+
+            # if there's nothing to send back, just continue
+            if reply == "":
+                continue
+
+            # construct reply and send it back
+            reply = reply + "\r\n"
+            reply = reply.encode()
+            self.request.sendall(reply)
+
     def handle(self):
         # self.request is the client socket
         while True:
@@ -101,41 +134,18 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 # something is wrong, drop client
                 return
 
-            if self.request not in reads:
-                # nothing to read; stop here
-                continue
+            if self.request in reads:
+                # read data from socket and add it to buffer
+                self.data = self.request.recv(1024)
 
-            # read data from socket and add it to buffer
-            self.data = self.request.recv(1024)
+                # self.buffer += self.data.decode()
+                self.buffer += self.data
 
-            # self.buffer += self.data.decode()
-            self.buffer += self.data
-
-            # try to find a complete message
-            eom = self.buffer.find(b"\r\n")
-            if eom == -1:
-                continue
-
-            # extract message from buffer
-            msg = self.buffer[:eom]
-            self.buffer = self.buffer[eom + 2:]
-
-            # start message handling
-            try:
-                msg = msg.decode()
-            except UnicodeDecodeError:
-                # invalid message format, drop client
+            # handle each complete message
+            error = self.handle_messages()
+            if error:
+                # some error occured handling the messages, drop client
                 return
-            reply = handle_msg(msg)
-
-            # if there's nothing to send back, just continue
-            if reply == "":
-                continue
-
-            # construct reply and send it back
-            reply = reply + "\r\n"
-            reply = reply.encode()
-            self.request.sendall(reply)
 
 
 def handle_account_list():
