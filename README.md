@@ -21,3 +21,9 @@ In the telnet session you can:
 * retrieve the list of accounts and their numbers/IDs with `account list`.
 * retrieve your buddy list with `account <id> buddies`
 * send a message to a user with `account <id> send <username> <message>`
+
+
+## Changes
+
+* v0.1:
+  * First/initial release.
