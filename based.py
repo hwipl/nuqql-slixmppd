@@ -10,6 +10,7 @@ import pathlib
 import logging
 import pickle
 import select
+import stat
 import sys
 import os
 
@@ -205,9 +206,11 @@ def handle_account_add(params):
     # create mew logger
     account_dir = ARGS.dir + "/logs/account/{0}".format(acc_id)
     pathlib.Path(account_dir).mkdir(parents=True, exist_ok=True)
+    os.chmod(account_dir, stat.S_IRWXU)
     account_log = account_dir + "/account.log"
     # logger name must be string
     LOGGERS[acc_id] = get_logger(str(acc_id), account_log)
+    os.chmod(account_log, stat.S_IRUSR | stat.S_IWUSR)
 
     # log event
     log_msg = "account new: id {0} type {1} user {2}".format(new_acc.aid,
@@ -487,19 +490,25 @@ def init_loggers():
     # make sure logs directory exists
     logs_dir = ARGS.dir + "/logs"
     pathlib.Path(logs_dir).mkdir(parents=True, exist_ok=True)
+    os.chmod(logs_dir, stat.S_IRWXU)
 
     # main log
     main_log = logs_dir + "/main.log"
     LOGGERS["main"] = get_logger("main", main_log)
+    os.chmod(main_log, stat.S_IRUSR | stat.S_IWUSR)
 
     # account logs
     account_dir = logs_dir + "/account"
+    pathlib.Path(account_dir).mkdir(parents=True, exist_ok=True)
+    os.chmod(account_dir, stat.S_IRWXU)
     for acc in ACCOUNTS.keys():
         acc_dir = account_dir + "/{0}".format(acc)
         pathlib.Path(acc_dir).mkdir(parents=True, exist_ok=True)
+        os.chmod(acc_dir, stat.S_IRWXU)
         acc_log = acc_dir + "/account.log"
         # logger name must be string
         LOGGERS[acc] = get_logger(str(acc), acc_log)
+        os.chmod(acc_log, stat.S_IRUSR | stat.S_IWUSR)
 
 
 def store_accounts():
@@ -509,6 +518,9 @@ def store_accounts():
 
     accounts_file = pathlib.Path(ARGS.dir + "/accounts.pickle")
     with open(accounts_file, "wb") as acc_file:
+        # make sure only user can read/write file before storing anything
+        os.chmod(accounts_file, stat.S_IRUSR | stat.S_IWUSR)
+
         # Pickle accounts using the highest protocol available.
         pickle.dump(ACCOUNTS, acc_file, pickle.HIGHEST_PROTOCOL)
 
@@ -520,9 +532,13 @@ def load_accounts():
 
     # make sure path and file exist
     pathlib.Path(ARGS.dir).mkdir(parents=True, exist_ok=True)
+    os.chmod(ARGS.dir, stat.S_IRWXU)
     accounts_file = pathlib.Path(ARGS.dir + "/accounts.pickle")
     if not accounts_file.exists():
         return
+
+    # make sure only user can read/write file before using it
+    os.chmod(accounts_file, stat.S_IRUSR | stat.S_IWUSR)
 
     with open(accounts_file, "rb") as acc_file:
         # The protocol version used is detected automatically, so we do not
