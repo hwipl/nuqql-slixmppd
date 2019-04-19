@@ -425,6 +425,7 @@ def run_unix_server(args):
         # ignore if the file did not exist
         pass
     with socketserver.UnixStreamServer(sockfile, NuqqlBaseHandler) as server:
+        os.chmod(sockfile, stat.S_IRUSR | stat.S_IWUSR)
         server.serve_forever()
 
 
