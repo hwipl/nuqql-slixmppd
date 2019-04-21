@@ -334,6 +334,42 @@ def handle_account_send(acc_id, params):
     return ""
 
 
+def handle_account_status(acc_id, params):
+    """
+    Get or set current status of account
+
+    Expected format:
+        account <ID> status get
+        account <ID> status set <STATUS>
+
+    params does not include "account <ID> status"
+
+    Returned messages for "status get" should look like:
+        status: account <ID> status: <STATUS>
+    """
+
+    if not params:
+        return ""
+
+    # get current status
+    if params[0] == "get":
+        if "get_status" in CALLBACKS:
+            status = CALLBACKS["get_status"](ACCOUNTS[acc_id])
+        else:
+            status = "online"   # TODO: do it better?
+        return "status: account {} status: {}".format(acc_id, status)
+
+    # set current status
+    if params[0] == "set":
+        if len(params) < 2:
+            return ""
+
+        status = params[1]
+        if "set_status" in CALLBACKS:
+            CALLBACKS["set_status"](ACCOUNTS[acc_id], status)
+    return ""
+
+
 # def handleAccount(parts, account, command, params):
 def handle_account(parts):
     """
@@ -378,6 +414,9 @@ def handle_account(parts):
 
     if command == "send":
         return handle_account_send(acc_id, params)
+
+    if command == "status":
+        return handle_account_status(acc_id, params)
 
     return "error: unknown command"
 
