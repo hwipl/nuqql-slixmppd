@@ -259,6 +259,51 @@ def send_message(account, jid, msg):
     xmpp.enqueue_message((jid, msg, html_msg, 'chat'))
 
 
+def set_status(account, status):
+    """
+    Set the current status of the account
+    """
+
+    try:
+        xmpp = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return
+
+    xmpp.send_presence(pshow=status)
+
+
+def get_status(account):
+    """
+    Get the current status of the account
+    """
+
+    try:
+        xmpp = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return ""
+
+    connections = xmpp.client_roster.presence(xmpp.boundjid)
+    status = "offline"
+
+    # check all resources for presence information
+    if connections:
+        # if there is a connection, user is at least online
+        status = "available"
+
+    for pres in connections.values():
+        # the optional status field shows additional info like
+        # "I'm currently away from my computer" which is too long
+        # if pres['status']:
+        #     status = pres["status"]
+        # if there is an optional show value, display it instead
+        if pres['show']:
+            status = pres['show']
+
+    return status
+
+
 def run_client(account, ready, running):
     """
     Run client connection in a new thread,
@@ -343,6 +388,8 @@ def main():
     based.CALLBACKS["get_messages"] = get_messages
     based.CALLBACKS["send_message"] = send_message
     based.CALLBACKS["collect_messages"] = collect_messages
+    based.CALLBACKS["set_status"] = set_status
+    based.CALLBACKS["get_status"] = get_status
 
     # run the server for the nuqql connection
     try:
