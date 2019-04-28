@@ -25,5 +25,10 @@ In the telnet session you can:
 
 ## Changes
 
+* v0.2:
+  * Add account status message:
+    * Set current status with: `account <id> status set <status>`
+    * Get current status with: `account <id> status get`
+  * Use stricter permissions for account, log, and sock files
 * v0.1:
   * First/initial release.
