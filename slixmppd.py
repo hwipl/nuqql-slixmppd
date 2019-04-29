@@ -182,6 +182,11 @@ class NuqqlClient(ClientXMPP):
                 if pres['show']:
                     status = pres['show']
 
+            # check if it is a muc
+            if jid in self.plugin['xep_0045'].get_joined_rooms():
+                # use special status for group chats
+                status = "GROUP_CHAT"
+
             # add buddies to buddy list
             buddy = based.Buddy(name=jid, alias=alias, status=status)
             self.buddies.append(buddy)
