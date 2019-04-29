@@ -370,6 +370,57 @@ def handle_account_status(acc_id, params):
     return ""
 
 
+def handle_account_chat(acc_id, params):
+    """
+    Join, part, and list chats and send messages to chats
+
+    Expected format:
+        account <ID> chat list
+        account <ID> chat join <CHAT>
+        account <ID> chat part <CHAT>
+        account <ID> chat send <CHAT> <MESSAGE>
+        account <ID> chat users <CHAT>
+    """
+
+    if not params:
+        return ""
+
+    # list active chats
+    if params[0] == "list":
+        if "chat_list" in CALLBACKS:
+            return "\r\n".join(CALLBACKS["chat_list"](ACCOUNTS[acc_id]))
+
+    if len(params) < 2:
+        return ""
+
+    chat = params[1]
+    # join a chat
+    if params[0] == "join":
+        if "chat_join" in CALLBACKS:
+            return CALLBACKS["chat_join"](ACCOUNTS[acc_id], chat)
+
+    # leave a chat
+    if params[0] == "part":
+        if "chat_part" in CALLBACKS:
+            return CALLBACKS["chat_part"](ACCOUNTS[acc_id], chat)
+
+    # get users in chat
+    if params[0] == "users":
+        if "chat_users" in CALLBACKS:
+            return "\r\n".join(CALLBACKS["chat_users"](ACCOUNTS[acc_id], chat))
+
+    if len(params) < 3:
+        return ""
+
+    msg = " ".join(params[2:])
+    # send a message to a chat
+    if params[0] == "send":
+        if "chat_send" in CALLBACKS:
+            return CALLBACKS["chat_send"](ACCOUNTS[acc_id], chat, msg)
+
+    return ""
+
+
 # def handleAccount(parts, account, command, params):
 def handle_account(parts):
     """
@@ -417,6 +468,9 @@ def handle_account(parts):
 
     if command == "status":
         return handle_account_status(acc_id, params)
+
+    if command == "chat":
+        return handle_account_chat(acc_id, params)
 
     return "error: unknown command"
 
