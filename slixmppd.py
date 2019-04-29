@@ -31,8 +31,10 @@ class NuqqlClient(ClientXMPP):
     def __init__(self, jid, password, lock):
         ClientXMPP.__init__(self, jid, password)
 
+        # event handlers
         self.add_event_handler("session_start", self.session_start)
         self.add_event_handler("message", self.message)
+        self.add_event_handler("groupchat_message", self.muc_message)
 
         self.lock = lock
         self.buddies = []
@@ -59,6 +61,30 @@ class NuqqlClient(ClientXMPP):
         """
 
         if msg['type'] in ('chat', 'normal'):
+            # if message contains a timestamp, use it
+            tstamp = msg['delay']['stamp']
+            if tstamp:
+                # convert to timestamp in seconds
+                tstamp = tstamp.timestamp()
+            else:
+                # if there is no timestamp in message, use current time
+                tstamp = time.time()
+
+            # save timestamp and message in messages list and history
+            tstamp = int(tstamp)
+            self.lock.acquire()
+            self.messages.append((tstamp, msg))
+            self.history.append((tstamp, msg))
+            self.lock.release()
+
+    def muc_message(self, msg):
+        """
+        Groupchat message handler.
+        """
+        # TODO: if we do nothing extra here, move it into normal message
+        # handler above?
+
+        if msg['type'] == 'groupchat':
             # if message contains a timestamp, use it
             tstamp = msg['delay']['stamp']
             if tstamp:
@@ -237,7 +263,7 @@ def collect_messages(account):
     return format_messages(account, messages)
 
 
-def send_message(account, jid, msg):
+def send_message(account, jid, msg, msg_type="chat"):
     """
     send a message to a jabber id on an account
     """
@@ -256,7 +282,7 @@ def send_message(account, jid, msg):
     msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
     # send message
-    xmpp.enqueue_message((jid, msg, html_msg, 'chat'))
+    xmpp.enqueue_message((jid, msg, html_msg, msg_type))
 
 
 def set_status(account, status):
@@ -304,6 +330,96 @@ def get_status(account):
     return status
 
 
+def chat_list(account):
+    """
+    List active chats of account
+    """
+
+    ret = []
+    try:
+        xmpp = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return ret
+
+    for chat in xmpp.plugin['xep_0045'].get_joined_rooms():
+        nick = xmpp.plugin['xep_0045'].our_nicks[chat]
+        ret.append("chat: list: {} {} {}".format(account.aid, chat, nick))
+
+    return ret
+
+
+def chat_join(account, chat, nick=""):
+    """
+    Join chat on account
+    """
+
+    try:
+        xmpp = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return ""
+
+    if nick == "":
+        nick = xmpp.jid
+    xmpp.plugin['xep_0045'].join_muc(chat,
+                                     nick,
+                                     # If a room password is needed, use:
+                                     # password=the_room_password,
+                                     wait=True)
+    return ""
+
+
+def chat_part(account, chat):
+    """
+    Leave chat on account
+    """
+
+    try:
+        xmpp = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return ""
+
+    if chat in xmpp.plugin['xep_0045'].get_joined_rooms():
+        nick = xmpp.plugin['xep_0045'].our_nicks[chat]
+        xmpp.plugin['xep_0045'].leave_muc(chat, nick)
+    return ""
+
+
+def chat_send(account, chat, msg):
+    """
+    Send message to chat on account
+    """
+
+    send_message(account, chat, msg, msg_type="groupchat")
+    return ""
+
+
+def chat_users(account, chat):
+    """
+    Get list of users in chat on account
+    """
+
+    ret = []
+    try:
+        xmpp = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return ret
+
+    roster = xmpp.plugin['xep_0045'].get_roster(chat)
+    if not roster:
+        return ret
+
+    for user in roster:
+        if user == "":
+            continue
+        ret.append("chat: user: {}".format(user))
+
+    return ret
+
+
 def run_client(account, ready, running):
     """
     Run client connection in a new thread,
@@ -322,6 +438,9 @@ def run_client(account, ready, running):
     xmpp.register_plugin('xep_0071')    # XHTML-IM
     xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
     xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
+    xmpp.register_plugin('xep_0030')    # Service Discovery
+    xmpp.register_plugin('xep_0045')    # Multi-User Chat
+    xmpp.register_plugin('xep_0199')    # XMPP Ping
     xmpp.connect()
 
     # save client connection in active connections dictionary
@@ -390,6 +509,11 @@ def main():
     based.CALLBACKS["collect_messages"] = collect_messages
     based.CALLBACKS["set_status"] = set_status
     based.CALLBACKS["get_status"] = get_status
+    based.CALLBACKS["chat_list"] = chat_list
+    based.CALLBACKS["chat_join"] = chat_join
+    based.CALLBACKS["chat_part"] = chat_part
+    based.CALLBACKS["chat_send"] = chat_send
+    based.CALLBACKS["chat_users"] = chat_users
 
     # run the server for the nuqql connection
     try:
