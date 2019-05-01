@@ -42,6 +42,8 @@ class NuqqlClient(ClientXMPP):
         self.history = []
         self.messages = []
 
+        self.muc_filter_own = True
+
     def session_start(self, _event):
         """
         Session start handler
@@ -85,6 +87,11 @@ class NuqqlClient(ClientXMPP):
         # handler above?
 
         if msg['type'] == 'groupchat':
+            # filter own messages
+            chat = msg['from'].bare
+            nick = self.plugin['xep_0045'].our_nicks[chat]
+            if self.muc_filter_own and msg['mucnick'] == nick:
+                return
             # if message contains a timestamp, use it
             tstamp = msg['delay']['stamp']
             if tstamp:
