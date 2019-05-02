@@ -42,6 +42,7 @@ class NuqqlClient(ClientXMPP):
         self.history = []
         self.messages = []
 
+        self.muc_cache = []
         self.muc_filter_own = True
 
     def session_start(self, _event):
@@ -193,6 +194,9 @@ class NuqqlClient(ClientXMPP):
             if jid in self.plugin['xep_0045'].get_joined_rooms():
                 # use special status for group chats
                 status = "GROUP_CHAT"
+            elif jid in self.muc_cache:
+                # this is a muc and we are not in it any more, filter it
+                continue
 
             # add buddies to buddy list
             buddy = based.Buddy(name=jid, alias=alias, status=status)
@@ -379,6 +383,7 @@ def chat_join(account, chat, nick=""):
                                      # If a room password is needed, use:
                                      # password=the_room_password,
                                      wait=True)
+    xmpp.muc_cache.append(chat)
     return ""
 
 
@@ -396,6 +401,7 @@ def chat_part(account, chat):
     if chat in xmpp.plugin['xep_0045'].get_joined_rooms():
         nick = xmpp.plugin['xep_0045'].our_nicks[chat]
         xmpp.plugin['xep_0045'].leave_muc(chat, nick)
+        # keep muc in muc_cache to filter it from buddy list
     return ""
 
 
