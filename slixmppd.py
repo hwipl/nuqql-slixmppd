@@ -41,6 +41,7 @@ class NuqqlClient(ClientXMPP):
         self.queue = []
         self.history = []
         self.messages = []
+        self.events = []
 
         self.muc_cache = []
         self.muc_filter_own = True
@@ -109,6 +110,38 @@ class NuqqlClient(ClientXMPP):
             self.history.append((tstamp, msg))
             self.lock.release()
 
+    def _muc_presence(self, presence, status):
+        """
+        Group chat presence handler
+        """
+
+        # get chat and our nick in the chat
+        chat = presence["from"].bare
+        nick = self.plugin['xep_0045'].our_nicks[chat]
+        if presence['muc']['nick'] == "" and presence["muc"]["role"] == "":
+            return
+
+        if presence['muc']['nick'] != nick:
+            tstamp = int(time.time())
+            msg = "*** {} got {}. ***".format(presence["muc"]["nick"], status)
+            self.lock.acquire()
+            self.events.append((tstamp, chat, presence["muc"]["nick"], msg))
+            self.lock.release()
+
+    def muc_online(self, presence):
+        """
+        Group chat online presence handler
+        """
+
+        self._muc_presence(presence, "online")
+
+    def muc_offline(self, presence):
+        """
+        Group chat offline presence handler
+        """
+
+        self._muc_presence(presence, "offline")
+
     def collect(self):
         """
         Collect all messages from message log
@@ -135,6 +168,20 @@ class NuqqlClient(ClientXMPP):
 
         # return the copy of the message list
         return messages
+
+    def get_events(self):
+        """
+        Read (muc) events
+        """
+
+        self.lock.acquire()
+        # create a copy of the event list, and flush the event list
+        events = self.events[:]
+        self.events = []
+        self.lock.release()
+
+        # return the copy of the event list
+        return events
 
     def enqueue_message(self, message_tuple):
         """
@@ -243,6 +290,19 @@ def format_messages(account, messages):
     return ret
 
 
+def format_events(account, events):
+    """
+    Format events for get_messages()
+    """
+
+    ret = []
+    for tstamp, chat, nick, msg in events:
+        ret_str = "message: {} {} {} {} {}".format(account.aid, chat, tstamp,
+                                                   chat + "/" + nick, msg)
+        ret.append(ret_str)
+    return ret
+
+
 def get_messages(account):
     """
     Read messages from client connection
@@ -255,10 +315,14 @@ def get_messages(account):
         return []
 
     # get messages
-    messages = xmpp.get_messages()
+    messages = format_messages(account, xmpp.get_messages())
 
-    # format and return them
-    return format_messages(account, messages)
+    # get events
+    # TODO: add function call for events in based.py and new message format?
+    events = format_events(account, xmpp.get_events())
+
+    # return messages and event
+    return messages + events
 
 
 def collect_messages(account):
@@ -383,6 +447,8 @@ def chat_join(account, chat, nick=""):
                                      # If a room password is needed, use:
                                      # password=the_room_password,
                                      wait=True)
+    xmpp.add_event_handler("muc::%s::got_online" % chat, xmpp.muc_online)
+    xmpp.add_event_handler("muc::%s::got_offline" % chat, xmpp.muc_offline)
     xmpp.muc_cache.append(chat)
     return ""
 
@@ -401,6 +467,8 @@ def chat_part(account, chat):
     if chat in xmpp.plugin['xep_0045'].get_joined_rooms():
         nick = xmpp.plugin['xep_0045'].our_nicks[chat]
         xmpp.plugin['xep_0045'].leave_muc(chat, nick)
+        xmpp.del_event_handler("muc::%s::got_online" % chat, xmpp.muc_online)
+        xmpp.del_event_handler("muc::%s::got_offline" % chat, xmpp.muc_offline)
         # keep muc in muc_cache to filter it from buddy list
     return ""
 
