@@ -433,7 +433,7 @@ def chat_users(account, chat):
     for user in roster:
         if user == "":
             continue
-        ret.append("chat: user: {} {}".format(account.aid, user))
+        ret.append("chat: user: {} {} {}".format(account.aid, chat, user))
 
     return ret
 
