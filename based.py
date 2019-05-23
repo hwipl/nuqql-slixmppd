@@ -380,6 +380,7 @@ def handle_account_chat(acc_id, params):
         account <ID> chat part <CHAT>
         account <ID> chat send <CHAT> <MESSAGE>
         account <ID> chat users <CHAT>
+        account <ID> chat invite <CHAT> <USER>
     """
 
     if not params:
@@ -412,9 +413,15 @@ def handle_account_chat(acc_id, params):
     if len(params) < 3:
         return ""
 
-    msg = " ".join(params[2:])
+    # invite a user to a chat
+    if params[0] == "invite":
+        user = params[2]
+        if "chat_invite" in CALLBACKS:
+            return CALLBACKS["chat_invite"](ACCOUNTS[acc_id], chat, user)
+
     # send a message to a chat
     if params[0] == "send":
+        msg = " ".join(params[2:])
         if "chat_send" in CALLBACKS:
             return CALLBACKS["chat_send"](ACCOUNTS[acc_id], chat, msg)
 
