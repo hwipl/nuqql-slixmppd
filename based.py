@@ -488,7 +488,7 @@ def handle_msg(msg):
     """
 
     # get parts of message
-    parts = msg.split()
+    parts = msg.split(" ")
 
     # account specific commands
     if len(parts) >= 2 and parts[0] == "account":
