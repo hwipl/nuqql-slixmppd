@@ -37,6 +37,7 @@ class NuqqlClient(ClientXMPP):
         self.add_event_handler("session_start", self.session_start)
         self.add_event_handler("message", self.message)
         self.add_event_handler("groupchat_message", self.muc_message)
+        self.add_event_handler("groupchat_invite", self._muc_invite)
 
         self.lock = lock
         self.buddies = []
@@ -45,6 +46,7 @@ class NuqqlClient(ClientXMPP):
         self.messages = []
         self.events = []
 
+        self.muc_invites = {}
         self.muc_cache = []
         self.muc_filter_own = True
 
@@ -129,6 +131,17 @@ class NuqqlClient(ClientXMPP):
             self.lock.acquire()
             self.events.append((tstamp, chat, presence["muc"]["nick"], msg))
             self.lock.release()
+
+    def _muc_invite(self, inv):
+        """
+        Group chat invite handler
+        """
+
+        user = inv["to"]
+        chat = inv["from"]
+        self.lock.acquire()
+        self.muc_invites[chat] = (user, chat)
+        self.lock.release()
 
     def muc_online(self, presence):
         """
@@ -255,6 +268,17 @@ class NuqqlClient(ClientXMPP):
 
             # add buddies to buddy list
             buddy = based.Buddy(name=jid, alias=alias, status=status)
+            self.buddies.append(buddy)
+
+            # cleanup invites
+            if jid in self.muc_invites:
+                del self.muc_invites[jid]
+
+        # handle pending invites as buddies
+        for invite in self.muc_invites.values():
+            _user, chat = invite
+            buddy = based.Buddy(name=chat, alias=chat,
+                                status="GROUP_CHAT_INVITE")
             self.buddies.append(buddy)
         self.lock.release()
 
@@ -472,12 +496,19 @@ def chat_part(account, chat):
         # no active connection
         return ""
 
+    # chat already joined
     if chat in xmpp.plugin['xep_0045'].get_joined_rooms():
         nick = xmpp.plugin['xep_0045'].our_nicks[chat]
         xmpp.plugin['xep_0045'].leave_muc(chat, nick)
         xmpp.del_event_handler("muc::%s::got_online" % chat, xmpp.muc_online)
         xmpp.del_event_handler("muc::%s::got_offline" % chat, xmpp.muc_offline)
         # keep muc in muc_cache to filter it from buddy list
+
+    # chat not joined yet, remove pending invite
+    if chat in xmpp.muc_invites:
+        # simply ignore the pending invite and remove it
+        del xmpp.muc_invites[chat]
+
     return ""
 
 
@@ -512,6 +543,21 @@ def chat_users(account, chat):
         ret.append("chat: user: {} {} {}".format(account.aid, chat, user))
 
     return ret
+
+
+def chat_invite(account, chat, user):
+    """
+    Invite user to chat on account
+    """
+
+    try:
+        xmpp = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return ""
+
+    xmpp.plugin['xep_0045'].invite(chat, user)
+    return ""
 
 
 def run_client(account, ready, running):
@@ -608,6 +654,7 @@ def main():
     based.CALLBACKS["chat_part"] = chat_part
     based.CALLBACKS["chat_send"] = chat_send
     based.CALLBACKS["chat_users"] = chat_users
+    based.CALLBACKS["chat_invite"] = chat_invite
 
     # run the server for the nuqql connection
     try:
