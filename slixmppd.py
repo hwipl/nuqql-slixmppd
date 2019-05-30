@@ -10,6 +10,9 @@ import asyncio
 import html
 import re
 import unicodedata
+import logging
+import stat
+import os
 
 
 from threading import Thread, Lock, Event
@@ -627,6 +630,21 @@ def add_account(account):
     ready.wait()
 
 
+def init_logging():
+    """
+    Configure logging module, so slixmpp logs are written to a file
+    """
+
+    # determine logging path from command line parameters
+    log_file = based.ARGS.dir + "/logs/slixmpp.log"
+
+    # configure logging module to write to file
+    log_format = "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"
+    logging.basicConfig(filename=log_file, level=logging.DEBUG,
+                        format=log_format, datefmt="%s")
+    os.chmod(log_file, stat.S_IRWXU)
+
+
 def main():
     """
     Main function, initialize everything and start server
@@ -638,8 +656,12 @@ def main():
     # load accounts
     based.load_accounts()
 
-    # initialize loggers
+    # initialize logging and loggers
+    init_logging()
     based.init_loggers()
+    for logger in based.LOGGERS.values():
+        # make sure other loggers do not also write to root logger
+        logger.propagate = False
 
     # start a client connection for every xmpp account in it's own thread
     for acc in based.ACCOUNTS.values():
