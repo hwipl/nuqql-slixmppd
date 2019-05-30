@@ -540,7 +540,12 @@ def chat_users(account, chat):
     for user in roster:
         if user == "":
             continue
-        ret.append("chat: user: {} {} {}".format(account.aid, chat, user))
+        # TODO: try to retrieve proper alias
+        user_alias = user
+        # TODO: try to retrieve user's presence as status?
+        status = "join"
+        ret.append("chat: user: {} {} {} {} {}".format(
+            account.aid, chat, user, user_alias, status))
 
     return ret
 
