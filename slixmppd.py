@@ -225,7 +225,7 @@ class NuqqlClient(ClientXMPP):
             # remove control characters from message
             # TODO: do it in based/for all backends?
             msg = "".join(ch for ch in msg if
-                          unicodedata.category(ch)[0] != "C")
+                          ch == "\n" or unicodedata.category(ch)[0] != "C")
             html_msg = "".join(ch for ch in html_msg if
                                unicodedata.category(ch)[0] != "C")
             self.send_message(mto=jid, mbody=msg, mhtml=html_msg, mtype=mtype)
