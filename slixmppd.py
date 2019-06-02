@@ -458,8 +458,10 @@ def chat_list(account):
         return ret
 
     for chat in xmpp.plugin['xep_0045'].get_joined_rooms():
+        chat_alias = chat   # TODO: use something else as alias?
         nick = xmpp.plugin['xep_0045'].our_nicks[chat]
-        ret.append("chat: list: {} {} {}".format(account.aid, chat, nick))
+        ret.append("chat: list: {} {} {} {}".format(account.aid, chat,
+                                                    chat_alias, nick))
 
     return ret
 
