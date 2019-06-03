@@ -33,8 +33,11 @@ class NuqqlClient(ClientXMPP):
     Nuqql Client Class, derived from Slixmpp Client
     """
 
-    def __init__(self, jid, password, lock):
-        ClientXMPP.__init__(self, jid, password)
+    def __init__(self, account, lock):
+        # jid: account.user
+        # password: account.password
+        ClientXMPP.__init__(self, account.user, account.password)
+        self.account = account
 
         # event handlers
         self.add_event_handler("session_start", self.session_start)
@@ -584,7 +587,7 @@ def run_client(account, ready, running):
     lock = Lock()
 
     # start client connection
-    xmpp = NuqqlClient(account.user, account.password, lock)
+    xmpp = NuqqlClient(account, lock)
     xmpp.register_plugin('xep_0071')    # XHTML-IM
     xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
     xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
