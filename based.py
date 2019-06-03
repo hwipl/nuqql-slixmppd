@@ -357,7 +357,7 @@ def handle_account_status(acc_id, params):
             status = CALLBACKS["get_status"](ACCOUNTS[acc_id])
         else:
             status = "online"   # TODO: do it better?
-        return "status: account {} status: {}".format(acc_id, status)
+            return "status: account {} status: {}".format(acc_id, status)
 
     # set current status
     if params[0] == "set":

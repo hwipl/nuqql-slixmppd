@@ -231,6 +231,8 @@ class NuqqlClient(ClientXMPP):
                 self._send_message(params)
             if cmd == "set_status":
                 self._set_status(params[0])
+            if cmd == "get_status":
+                self._get_status()
             if cmd == "chat_list":
                 self._chat_list()
             if cmd == "chat_join":
@@ -303,6 +305,31 @@ class NuqqlClient(ClientXMPP):
         """
 
         self.send_presence(pshow=status)
+
+    def _get_status(self):
+        """
+        Get the current status of the account
+        """
+
+        connections = self.client_roster.presence(self.boundjid)
+        status = "offline"
+
+        # check all resources for presence information
+        if connections:
+            # if there is a connection, user is at least online
+            status = "available"
+
+        for pres in connections.values():
+            # the optional status field shows additional info like
+            # "I'm currently away from my computer" which is too long
+            # if pres['status']:
+            #     status = pres["status"]
+            # if there is an optional show value, display it instead
+            if pres['show']:
+                status = pres['show']
+
+        self.messages.append("status: account {} status: {}".format(
+            self.account.aid, status))
 
     def _chat_list(self):
         """
@@ -491,24 +518,8 @@ def get_status(account):
         # no active connection
         return ""
 
-    connections = xmpp.client_roster.presence(xmpp.boundjid)
-    status = "offline"
-
-    # check all resources for presence information
-    if connections:
-        # if there is a connection, user is at least online
-        status = "available"
-
-    for pres in connections.values():
-        # the optional status field shows additional info like
-        # "I'm currently away from my computer" which is too long
-        # if pres['status']:
-        #     status = pres["status"]
-        # if there is an optional show value, display it instead
-        if pres['show']:
-            status = pres['show']
-
-    return status
+    xmpp.enqueue_command("get_status", ())
+    return ""
 
 
 def chat_list(account):
