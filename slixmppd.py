@@ -132,10 +132,12 @@ class NuqqlClient(ClientXMPP):
             return
 
         if presence['muc']['nick'] != nick:
-            tstamp = int(time.time())
-            msg = "*** {} got {}. ***".format(presence["muc"]["nick"], status)
+            user = presence["muc"]["nick"]
+            user_alias = user   # try to get a real alias?
+            msg = "chat: user: {} {} {} {} {}".format(
+                self.account.aid, chat, user, user_alias, status)
             self.lock.acquire()
-            self.events.append((tstamp, chat, presence["muc"]["nick"], msg))
+            self.events.append(msg)
             self.lock.release()
 
     def _muc_invite(self, inv):
@@ -328,19 +330,6 @@ def format_messages(account, messages):
     return ret
 
 
-def format_events(account, events):
-    """
-    Format events for get_messages()
-    """
-
-    ret = []
-    for tstamp, chat, nick, msg in events:
-        ret_str = "message: {} {} {} {} {}".format(account.aid, chat, tstamp,
-                                                   chat + "/" + nick, msg)
-        ret.append(ret_str)
-    return ret
-
-
 def get_messages(account):
     """
     Read messages from client connection
@@ -357,7 +346,7 @@ def get_messages(account):
 
     # get events
     # TODO: add function call for events in based.py and new message format?
-    events = format_events(account, xmpp.get_events())
+    events = xmpp.get_events()
 
     # return messages and event
     return messages + events
