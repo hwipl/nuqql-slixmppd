@@ -231,6 +231,8 @@ class NuqqlClient(ClientXMPP):
                 self._send_message(params)
             if cmd == "chat_list":
                 self._chat_list()
+            if cmd == "chat_join":
+                self._chat_join(params[0], params[1])
         # flush queue
         self.queue = []
         self.lock.release()
@@ -297,6 +299,23 @@ class NuqqlClient(ClientXMPP):
             nick = self.plugin['xep_0045'].our_nicks[chat]
             self.messages.append("chat: list: {} {} {} {}".format(
                 self.account.aid, chat, chat_alias, nick))
+
+    def _chat_join(self, chat, nick):
+        """
+        Join chat on account
+        """
+
+        if nick == "":
+            nick = self.jid
+        self.plugin['xep_0045'].join_muc(chat,
+                                         nick,
+                                         # If a room password is needed, use:
+                                         # password=the_room_password,
+                                         wait=True)
+        self.add_event_handler("muc::%s::got_online" % chat, self.muc_online)
+        self.add_event_handler("muc::%s::got_offline" % chat, self.muc_offline)
+        self.muc_cache.append(chat)
+        return ""
 
 
 def update_buddies(account):
@@ -458,16 +477,7 @@ def chat_join(account, chat, nick=""):
         # no active connection
         return ""
 
-    if nick == "":
-        nick = xmpp.jid
-    xmpp.plugin['xep_0045'].join_muc(chat,
-                                     nick,
-                                     # If a room password is needed, use:
-                                     # password=the_room_password,
-                                     wait=True)
-    xmpp.add_event_handler("muc::%s::got_online" % chat, xmpp.muc_online)
-    xmpp.add_event_handler("muc::%s::got_offline" % chat, xmpp.muc_offline)
-    xmpp.muc_cache.append(chat)
+    xmpp.enqueue_command("chat_join", (chat, nick))
     return ""
 
 
