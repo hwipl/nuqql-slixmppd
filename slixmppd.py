@@ -235,6 +235,8 @@ class NuqqlClient(ClientXMPP):
                 self._chat_join(params[0], params[1])
             if cmd == "chat_part":
                 self._chat_part(params[0])
+            if cmd == "chat_users":
+                self._chat_users(params[0])
         # flush queue
         self.queue = []
         self.lock.release()
@@ -338,6 +340,25 @@ class NuqqlClient(ClientXMPP):
         if chat in self.muc_invites:
             # simply ignore the pending invite and remove it
             del self.muc_invites[chat]
+
+    def _chat_users(self, chat):
+        """
+        Get list of users in chat on account
+        """
+
+        roster = self.plugin['xep_0045'].get_roster(chat)
+        if not roster:
+            return
+
+        for user in roster:
+            if user == "":
+                continue
+            # TODO: try to retrieve proper alias
+            user_alias = user
+            # TODO: try to retrieve user's presence as status?
+            status = "join"
+            self.messages.append("chat: user: {} {} {} {} {}".format(
+                self.account.aid, chat, user, user_alias, status))
 
 
 def update_buddies(account):
@@ -539,20 +560,7 @@ def chat_users(account, chat):
         # no active connection
         return ret
 
-    roster = xmpp.plugin['xep_0045'].get_roster(chat)
-    if not roster:
-        return ret
-
-    for user in roster:
-        if user == "":
-            continue
-        # TODO: try to retrieve proper alias
-        user_alias = user
-        # TODO: try to retrieve user's presence as status?
-        status = "join"
-        ret.append("chat: user: {} {} {} {} {}".format(
-            account.aid, chat, user, user_alias, status))
-
+    xmpp.enqueue_command("chat_users", (chat, ))
     return ret
 
 
