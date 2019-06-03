@@ -237,6 +237,8 @@ class NuqqlClient(ClientXMPP):
                 self._chat_part(params[0])
             if cmd == "chat_users":
                 self._chat_users(params[0])
+            if cmd == "chat_invite":
+                self._chat_invite(params[0], params[1])
         # flush queue
         self.queue = []
         self.lock.release()
@@ -359,6 +361,13 @@ class NuqqlClient(ClientXMPP):
             status = "join"
             self.messages.append("chat: user: {} {} {} {} {}".format(
                 self.account.aid, chat, user, user_alias, status))
+
+    def _chat_invite(self, chat, user):
+        """
+        Invite user to chat on account
+        """
+
+        self.plugin['xep_0045'].invite(chat, user)
 
 
 def update_buddies(account):
@@ -575,7 +584,7 @@ def chat_invite(account, chat, user):
         # no active connection
         return ""
 
-    xmpp.plugin['xep_0045'].invite(chat, user)
+    xmpp.enqueue_command("chat_invite", (chat, user))
     return ""
 
 
