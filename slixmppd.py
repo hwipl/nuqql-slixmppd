@@ -50,7 +50,6 @@ class NuqqlClient(ClientXMPP):
         self.queue = []
         self.history = []
         self.messages = []
-        self.events = []
 
         self.muc_invites = {}
         self.muc_cache = []
@@ -139,7 +138,8 @@ class NuqqlClient(ClientXMPP):
             msg = "chat: user: {} {} {} {} {}".format(
                 self.account.aid, chat, user, user_alias, status)
             self.lock.acquire()
-            self.events.append(msg)
+            # append to messages only
+            self.messages.append(msg)
             self.lock.release()
 
     def _muc_invite(self, inv):
@@ -193,20 +193,6 @@ class NuqqlClient(ClientXMPP):
 
         # return the copy of the message list
         return messages
-
-    def get_events(self):
-        """
-        Read (muc) events
-        """
-
-        self.lock.acquire()
-        # create a copy of the event list, and flush the event list
-        events = self.events[:]
-        self.events = []
-        self.lock.release()
-
-        # return the copy of the event list
-        return events
 
     def enqueue_message(self, message_tuple):
         """
@@ -339,15 +325,8 @@ def get_messages(account):
         # no active connection
         return []
 
-    # get messages
-    messages = xmpp.get_messages()
-
-    # get events
-    # TODO: add function call for events in based.py and new message format?
-    events = xmpp.get_events()
-
-    # return messages and event
-    return messages + events
+    # get and return messages
+    return xmpp.get_messages()
 
 
 def collect_messages(account):
