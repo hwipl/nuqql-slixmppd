@@ -225,8 +225,14 @@ class NuqqlClient(ClientXMPP):
         Send all queued messages
         """
 
+        # create temporary copy and flush queue
         self.lock.acquire()
-        for cmd, params in self.queue:
+        queue = self.queue[:]
+        self.queue = []
+        self.lock.release()
+
+        # handle commands in queue
+        for cmd, params in queue:
             if cmd == "message":
                 self._send_message(params)
             if cmd == "set_status":
@@ -243,9 +249,6 @@ class NuqqlClient(ClientXMPP):
                 self._chat_users(params[0])
             if cmd == "chat_invite":
                 self._chat_invite(params[0], params[1])
-        # flush queue
-        self.queue = []
-        self.lock.release()
 
     def update_buddies(self):
         """
@@ -328,8 +331,10 @@ class NuqqlClient(ClientXMPP):
             if pres['show']:
                 status = pres['show']
 
+        self.lock.acquire()
         self.messages.append("status: account {} status: {}".format(
             self.account.aid, status))
+        self.lock.release()
 
     def _chat_list(self):
         """
@@ -339,8 +344,10 @@ class NuqqlClient(ClientXMPP):
         for chat in self.plugin['xep_0045'].get_joined_rooms():
             chat_alias = chat   # TODO: use something else as alias?
             nick = self.plugin['xep_0045'].our_nicks[chat]
+            self.lock.acquire()
             self.messages.append("chat: list: {} {} {} {}".format(
                 self.account.aid, chat, chat_alias, nick))
+            self.lock.release()
 
     def _chat_join(self, chat, nick):
         """
@@ -395,8 +402,10 @@ class NuqqlClient(ClientXMPP):
             user_alias = user
             # TODO: try to retrieve user's presence as status?
             status = "join"
+            self.lock.acquire()
             self.messages.append("chat: user: {} {} {} {} {}".format(
                 self.account.aid, chat, user, user_alias, status))
+            self.lock.release()
 
     def _chat_invite(self, chat, user):
         """
