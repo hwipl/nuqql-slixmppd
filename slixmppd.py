@@ -229,6 +229,8 @@ class NuqqlClient(ClientXMPP):
         for cmd, params in self.queue:
             if cmd == "message":
                 self._send_message(params)
+            if cmd == "set_status":
+                self._set_status(params[0])
             if cmd == "chat_list":
                 self._chat_list()
             if cmd == "chat_join":
@@ -294,6 +296,13 @@ class NuqqlClient(ClientXMPP):
                                 status="GROUP_CHAT_INVITE")
             self.buddies.append(buddy)
         self.lock.release()
+
+    def _set_status(self, status):
+        """
+        Set the current status of the account
+        """
+
+        self.send_presence(pshow=status)
 
     def _chat_list(self):
         """
@@ -468,7 +477,7 @@ def set_status(account, status):
         # no active connection
         return
 
-    xmpp.send_presence(pshow=status)
+    xmpp.enqueue_command("set_status", (status, ))
 
 
 def get_status(account):
