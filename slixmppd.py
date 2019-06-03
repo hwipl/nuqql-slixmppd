@@ -229,6 +229,8 @@ class NuqqlClient(ClientXMPP):
         for cmd, params in self.queue:
             if cmd == "message":
                 self._send_message(params)
+            if cmd == "chat_list":
+                self._chat_list()
         # flush queue
         self.queue = []
         self.lock.release()
@@ -284,6 +286,17 @@ class NuqqlClient(ClientXMPP):
                                 status="GROUP_CHAT_INVITE")
             self.buddies.append(buddy)
         self.lock.release()
+
+    def _chat_list(self):
+        """
+        List active chats of account
+        """
+
+        for chat in self.plugin['xep_0045'].get_joined_rooms():
+            chat_alias = chat   # TODO: use something else as alias?
+            nick = self.plugin['xep_0045'].our_nicks[chat]
+            self.messages.append("chat: list: {} {} {} {}".format(
+                self.account.aid, chat, chat_alias, nick))
 
 
 def update_buddies(account):
@@ -430,12 +443,7 @@ def chat_list(account):
         # no active connection
         return ret
 
-    for chat in xmpp.plugin['xep_0045'].get_joined_rooms():
-        chat_alias = chat   # TODO: use something else as alias?
-        nick = xmpp.plugin['xep_0045'].our_nicks[chat]
-        ret.append("chat: list: {} {} {} {}".format(account.aid, chat,
-                                                    chat_alias, nick))
-
+    xmpp.enqueue_command("chat_list", ())
     return ret
 
 
