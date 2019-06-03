@@ -86,9 +86,10 @@ class NuqqlClient(ClientXMPP):
 
             # save timestamp and message in messages list and history
             tstamp = int(tstamp)
+            formated_msg = format_message(self.account, tstamp, msg)
             self.lock.acquire()
-            self.messages.append((tstamp, msg))
-            self.history.append((tstamp, msg))
+            self.messages.append(formated_msg)
+            self.history.append(formated_msg)
             self.lock.release()
 
     def muc_message(self, msg):
@@ -115,9 +116,10 @@ class NuqqlClient(ClientXMPP):
 
             # save timestamp and message in messages list and history
             tstamp = int(tstamp)
+            formated_msg = format_message(self.account, tstamp, msg)
             self.lock.acquire()
-            self.messages.append((tstamp, msg))
-            self.history.append((tstamp, msg))
+            self.messages.append(formated_msg)
+            self.history.append(formated_msg)
             self.lock.release()
 
     def _muc_presence(self, presence, status):
@@ -312,22 +314,18 @@ def update_buddies(account):
     xmpp.lock.release()
 
 
-def format_messages(account, messages):
+def format_message(account, tstamp, msg):
     """
     format messages for get_messages() and collect_messages()
     """
 
-    ret = []
-    for tstamp, msg in messages:
-        # nuqql expects html-escaped messages; construct them
-        msg_body = msg["body"]
-        msg_body = html.escape(msg_body)
-        msg_body = "<br/>".join(msg_body.split("\n"))
-        ret_str = "message: {} {} {} {} {}".format(account.aid, msg["to"],
-                                                   tstamp, msg["from"],
-                                                   msg_body)
-        ret.append(ret_str)
-    return ret
+    # nuqql expects html-escaped messages; construct them
+    msg_body = msg["body"]
+    msg_body = html.escape(msg_body)
+    msg_body = "<br/>".join(msg_body.split("\n"))
+    ret_str = "message: {} {} {} {} {}".format(account.aid, msg["to"], tstamp,
+                                               msg["from"], msg_body)
+    return ret_str
 
 
 def get_messages(account):
@@ -342,7 +340,7 @@ def get_messages(account):
         return []
 
     # get messages
-    messages = format_messages(account, xmpp.get_messages())
+    messages = xmpp.get_messages()
 
     # get events
     # TODO: add function call for events in based.py and new message format?
@@ -363,11 +361,8 @@ def collect_messages(account):
         # no active connection
         return []
 
-    # collect messages
-    messages = xmpp.collect()
-
-    # format and return them
-    return format_messages(account, messages)
+    # collect and return messages
+    return xmpp.collect()
 
 
 def send_message(account, jid, msg, msg_type="chat"):
