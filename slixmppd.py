@@ -233,6 +233,8 @@ class NuqqlClient(ClientXMPP):
                 self._chat_list()
             if cmd == "chat_join":
                 self._chat_join(params[0], params[1])
+            if cmd == "chat_part":
+                self._chat_part(params[0])
         # flush queue
         self.queue = []
         self.lock.release()
@@ -316,6 +318,26 @@ class NuqqlClient(ClientXMPP):
         self.add_event_handler("muc::%s::got_offline" % chat, self.muc_offline)
         self.muc_cache.append(chat)
         return ""
+
+    def _chat_part(self, chat):
+        """
+        Leave chat on account
+        """
+
+        # chat already joined
+        if chat in self.plugin['xep_0045'].get_joined_rooms():
+            nick = self.plugin['xep_0045'].our_nicks[chat]
+            self.plugin['xep_0045'].leave_muc(chat, nick)
+            self.del_event_handler("muc::%s::got_online" % chat,
+                                   self.muc_online)
+            self.del_event_handler("muc::%s::got_offline" % chat,
+                                   self.muc_offline)
+            # keep muc in muc_cache to filter it from buddy list
+
+        # chat not joined yet, remove pending invite
+        if chat in self.muc_invites:
+            # simply ignore the pending invite and remove it
+            del self.muc_invites[chat]
 
 
 def update_buddies(account):
@@ -492,19 +514,7 @@ def chat_part(account, chat):
         # no active connection
         return ""
 
-    # chat already joined
-    if chat in xmpp.plugin['xep_0045'].get_joined_rooms():
-        nick = xmpp.plugin['xep_0045'].our_nicks[chat]
-        xmpp.plugin['xep_0045'].leave_muc(chat, nick)
-        xmpp.del_event_handler("muc::%s::got_online" % chat, xmpp.muc_online)
-        xmpp.del_event_handler("muc::%s::got_offline" % chat, xmpp.muc_offline)
-        # keep muc in muc_cache to filter it from buddy list
-
-    # chat not joined yet, remove pending invite
-    if chat in xmpp.muc_invites:
-        # simply ignore the pending invite and remove it
-        del xmpp.muc_invites[chat]
-
+    xmpp.enqueue_command("chat_part", (chat, ))
     return ""
 
 
