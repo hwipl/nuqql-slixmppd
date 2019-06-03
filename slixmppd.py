@@ -194,34 +194,41 @@ class NuqqlClient(ClientXMPP):
         # return the copy of the message list
         return messages
 
-    def enqueue_message(self, message_tuple):
+    def _send_message(self, message_tuple):
         """
-        Enqueue a message tuple in the message queue
-        Tuple consists of:
-            jid, msg, html_msg, msg_type
+        Send a queued message
+        """
+
+        # create message from message tuple and send it
+        jid, msg, html_msg, mtype = message_tuple
+        # remove control characters from message
+        # TODO: do it in based/for all backends?
+        msg = "".join(ch for ch in msg if ch == "\n" or
+                      unicodedata.category(ch)[0] != "C")
+        html_msg = "".join(ch for ch in html_msg if
+                           unicodedata.category(ch)[0] != "C")
+        self.send_message(mto=jid, mbody=msg, mhtml=html_msg, mtype=mtype)
+
+    def enqueue_command(self, cmd, params):
+        """
+        Enqueue a command to the queue consisting of:
+            command and its parameters
         """
 
         self.lock.acquire()
         # just add message tuple to queue
-        self.queue.append(message_tuple)
+        self.queue.append((cmd, params))
         self.lock.release()
 
-    def send_queue(self):
+    def handle_queue(self):
         """
         Send all queued messages
         """
 
         self.lock.acquire()
-        for message_tuple in self.queue:
-            # create message from message tuple and send it
-            jid, msg, html_msg, mtype = message_tuple
-            # remove control characters from message
-            # TODO: do it in based/for all backends?
-            msg = "".join(ch for ch in msg if
-                          ch == "\n" or unicodedata.category(ch)[0] != "C")
-            html_msg = "".join(ch for ch in html_msg if
-                               unicodedata.category(ch)[0] != "C")
-            self.send_message(mto=jid, mbody=msg, mhtml=html_msg, mtype=mtype)
+        for cmd, params in self.queue:
+            if cmd == "message":
+                self._send_message(params)
         # flush queue
         self.queue = []
         self.lock.release()
@@ -363,7 +370,7 @@ def send_message(account, jid, msg, msg_type="chat"):
     msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
     # send message
-    xmpp.enqueue_message((jid, msg, html_msg, msg_type))
+    xmpp.enqueue_command("message", (jid, msg, html_msg, msg_type))
 
 
 def set_status(account, status):
@@ -571,7 +578,7 @@ def run_client(account, ready, running):
         # process xmpp client for 0.1 seconds, then send pending outgoing
         # messages and update the (safe copy of the) buddy list
         xmpp.process(timeout=0.1)
-        xmpp.send_queue()
+        xmpp.handle_queue()
         xmpp.update_buddies()
 
 
