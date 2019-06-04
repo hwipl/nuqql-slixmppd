@@ -253,11 +253,8 @@ class NuqqlClient(ClientXMPP):
         Create a "safe" copy of roster
         """
 
-        self.lock.acquire()
-        # flush buddy list
-        self.buddies = []
-
         # get buddies from roster
+        buddies = []
         for jid in self.client_roster.keys():
             alias = self.client_roster[jid]["name"]
             connections = self.client_roster.presence(jid)
@@ -286,7 +283,7 @@ class NuqqlClient(ClientXMPP):
 
             # add buddies to buddy list
             buddy = based.Buddy(name=jid, alias=alias, status=status)
-            self.buddies.append(buddy)
+            buddies.append(buddy)
 
             # cleanup invites
             if jid in self.muc_invites:
@@ -297,7 +294,11 @@ class NuqqlClient(ClientXMPP):
             _user, chat = invite
             buddy = based.Buddy(name=chat, alias=chat,
                                 status="GROUP_CHAT_INVITE")
-            self.buddies.append(buddy)
+            buddies.append(buddy)
+
+        # update buddy list
+        self.lock.acquire()
+        self.buddies = buddies
         self.lock.release()
 
     def _set_status(self, status):
