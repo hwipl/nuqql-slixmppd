@@ -149,9 +149,7 @@ class NuqqlClient(ClientXMPP):
 
         user = inv["to"]
         chat = inv["from"]
-        self.lock.acquire()
         self.muc_invites[chat] = (user, chat)
-        self.lock.release()
 
     def muc_online(self, presence):
         """
