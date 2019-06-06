@@ -13,6 +13,7 @@ import unicodedata
 import logging
 import stat
 import os
+import pathlib
 
 
 from threading import Thread, Lock, Event
@@ -647,8 +648,11 @@ def init_logging():
     Configure logging module, so slixmpp logs are written to a file
     """
 
-    # determine logging path from command line parameters
-    log_file = based.ARGS.dir + "/logs/slixmpp.log"
+    # determine logging path from command line parameters and
+    # make sure it exists
+    logs_dir = based.ARGS.dir + "/logs"
+    pathlib.Path(logs_dir).mkdir(parents=True, exist_ok=True)
+    log_file = logs_dir + "/slixmpp.log"
 
     # configure logging module to write to file
     log_format = "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"
