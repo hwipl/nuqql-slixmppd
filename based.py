@@ -170,6 +170,24 @@ def handle_account_list():
     return "\r\n".join(replies)
 
 
+def _get_account_id():
+    """
+    Get next free account id
+    """
+
+    if not ACCOUNTS:
+        return 0
+
+    last_acc_id = -1
+    for acc_id in sorted(ACCOUNTS.keys()):
+        if acc_id - last_acc_id >= 2:
+            return last_acc_id + 1
+        if acc_id - last_acc_id == 1:
+            last_acc_id = acc_id
+
+    return last_acc_id + 1
+
+
 def handle_account_add(params):
     """
     Add a new account.
@@ -185,7 +203,7 @@ def handle_account_add(params):
         return ""
 
     # get account information
-    acc_id = len(ACCOUNTS)
+    acc_id = _get_account_id()
     acc_type = params[0]
     acc_user = params[1]
     acc_pass = params[2]
