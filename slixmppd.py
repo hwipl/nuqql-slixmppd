@@ -26,7 +26,7 @@ import based
 
 # dictionary for all xmpp client connections
 CONNECTIONS = {}
-THREADS = []
+THREADS = {}
 
 
 class NuqqlClient(ClientXMPP):
@@ -637,10 +637,26 @@ def add_account(account):
     new_thread.start()
 
     # save thread in active threads dictionary
-    THREADS.append((new_thread, running))
+    THREADS[account.aid] = (new_thread, running)
 
     # wait until thread initialized everything
     ready.wait()
+
+
+def del_account(account_id):
+    """
+    Delete an existing account (in based) and
+    stop slixmpp client thread for it
+    """
+
+    # stop thread
+    thread, running = THREADS[account_id]
+    running.clear()
+    thread.join()
+
+    # cleanup
+    del CONNECTIONS[account_id]
+    del THREADS[account_id]
 
 
 def init_logging():
@@ -686,6 +702,7 @@ def main():
 
     # register callbacks
     based.CALLBACKS["add_account"] = add_account
+    based.CALLBACKS["del_account"] = del_account
     based.CALLBACKS["update_buddies"] = update_buddies
     based.CALLBACKS["get_messages"] = get_messages
     based.CALLBACKS["send_message"] = send_message
@@ -704,7 +721,7 @@ def main():
         based.run_server(based.ARGS)
     except KeyboardInterrupt:
         # try to terminate all threads
-        for thread, running in THREADS:
+        for thread, running in THREADS.values():
             running.clear()
             thread.join()
         sys.exit()
