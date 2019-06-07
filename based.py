@@ -244,6 +244,30 @@ def handle_account_add(params):
     return "info: new account added."
 
 
+def handle_account_delete(acc_id):
+    """
+    Delete an existing account
+
+    Expected format:
+        account <ID> delete
+    """
+
+    # remove account and update accounts file
+    del ACCOUNTS[acc_id]
+    store_accounts()
+
+    # log event
+    log_msg = "account deleted: id {0}".format(acc_id)
+    LOGGERS["main"].info(log_msg)
+
+    # notify callback (if present) about deleted account
+    if "del_account" in CALLBACKS:
+        CALLBACKS["del_account"](acc_id)
+
+    # inform caller about success
+    return "info: account {} deleted.".format(acc_id)
+
+
 def handle_account_buddies(acc_id, params):
     """
     Get buddies for a specific account. If params contains "online", filter
@@ -481,6 +505,9 @@ def handle_account(parts):
         # TODO: currently this supports
         # "account <ID> add" and "account add <ID>", OK?
         return handle_account_add(params)
+
+    if command == "delete":
+        return handle_account_delete(acc_id)
 
     if command == "buddies":
         return handle_account_buddies(acc_id, params)
