@@ -11,6 +11,7 @@ import logging
 import pickle
 import select
 import stat
+import html
 import sys
 import os
 
@@ -543,6 +544,17 @@ def handle_msg(msg):
     # TODO: ver? who?
     # ignore rest for now...
     return ""
+
+
+def format_message(account, tstamp, sender, destination, msg):
+    """
+    Helper for formatting "message" messages
+    """
+
+    msg_body = html.escape(msg)
+    msg_body = "<br/>".join(msg_body.split("\n"))
+    return "message: {} {} {} {} {}".format(account.aid, destination, tstamp,
+                                            sender, msg_body)
 
 
 def run_inet_server(args):
