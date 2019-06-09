@@ -150,6 +150,15 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 return
 
 
+# message format strings
+ACCOUNT_FORMAT = "account: {0} ({1}) {2} {3} [{4}]"
+BUDDY_FORMAT = "buddy: {0} status: {1} name: {2} alias: {3}"
+STATUS_FORMAT = "status: account {0} status: {1}"
+MESSAGE_FORMAT = "message: {0} {1} {2} {3} {4}"
+CHAT_USER_FORMAT = "chat: user: {0} {1} {2} {3} {4}"
+CHAT_LIST_FORMAT = "chat: list: {0} {1} {2} {3}"
+
+
 def handle_account_list():
     """
     List all accounts
@@ -157,9 +166,8 @@ def handle_account_list():
 
     replies = []
     for account in ACCOUNTS.values():
-        reply = "account: {0} ({1}) {2} {3} [{4}]".format(
-            account.aid, account.name, account.type, account.user,
-            account.status)
+        reply = ACCOUNT_FORMAT.format(account.aid, account.name, account.type,
+                                      account.user, account.status)
         replies.append(reply)
 
     # log event
@@ -302,8 +310,8 @@ def handle_account_buddies(acc_id, params):
             continue
 
         # construct replies
-        reply = "buddy: {0} status: {1} name: {2} alias: {3}".format(
-            acc_id, buddy.status, buddy.name, buddy.alias)
+        reply = BUDDY_FORMAT.format(acc_id, buddy.status, buddy.name,
+                                    buddy.alias)
         replies.append(reply)
 
     # log event
@@ -400,7 +408,7 @@ def handle_account_status(acc_id, params):
             status = CALLBACKS["get_status"](ACCOUNTS[acc_id])
         else:
             status = "online"   # TODO: do it better?
-            return "status: account {} status: {}".format(acc_id, status)
+            return STATUS_FORMAT.format(acc_id, status)
 
     # set current status
     if params[0] == "set":
@@ -553,8 +561,8 @@ def format_message(account, tstamp, sender, destination, msg):
 
     msg_body = html.escape(msg)
     msg_body = "<br/>".join(msg_body.split("\n"))
-    return "message: {} {} {} {} {}".format(account.aid, destination, tstamp,
-                                            sender, msg_body)
+    return MESSAGE_FORMAT.format(account.aid, destination, tstamp, sender,
+                                 msg_body)
 
 
 def run_inet_server(args):
