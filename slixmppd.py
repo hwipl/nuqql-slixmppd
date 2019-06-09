@@ -86,7 +86,8 @@ class NuqqlClient(ClientXMPP):
 
             # save timestamp and message in messages list and history
             tstamp = int(tstamp)
-            formated_msg = format_message(self.account, tstamp, msg)
+            formated_msg = based.format_message(
+                self.account, tstamp, msg["from"], msg["to"], msg["body"])
             self.lock.acquire()
             self.messages.append(formated_msg)
             self.history.append(formated_msg)
@@ -116,7 +117,8 @@ class NuqqlClient(ClientXMPP):
 
             # save timestamp and message in messages list and history
             tstamp = int(tstamp)
-            formated_msg = format_message(self.account, tstamp, msg)
+            formated_msg = based.format_message(
+                self.account, tstamp, msg["from"], msg["to"], msg["body"])
             self.lock.acquire()
             self.messages.append(formated_msg)
             self.history.append(formated_msg)
@@ -434,20 +436,6 @@ def update_buddies(account):
     for buddy in xmpp.buddies:
         account.buddies.append(buddy)
     xmpp.lock.release()
-
-
-def format_message(account, tstamp, msg):
-    """
-    format messages for get_messages() and collect_messages()
-    """
-
-    # nuqql expects html-escaped messages; construct them
-    msg_body = msg["body"]
-    msg_body = html.escape(msg_body)
-    msg_body = "<br/>".join(msg_body.split("\n"))
-    ret_str = "message: {} {} {} {} {}".format(account.aid, msg["to"], tstamp,
-                                               msg["from"], msg_body)
-    return ret_str
 
 
 def get_messages(account):
