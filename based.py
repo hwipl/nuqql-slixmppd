@@ -15,12 +15,35 @@ import html
 import sys
 import os
 
+from enum import Enum, auto
+
 import daemon
 
 ACCOUNTS = {}
 LOGGERS = {}
 CALLBACKS = {}
 ARGS = None
+
+
+class Callback(Enum):
+    """
+    CALLBACKS constants
+    """
+
+    SEND_MESSAGE = auto()
+    GET_MESSAGES = auto()
+    COLLECT_MESSAGES = auto()
+    ADD_ACCOUNT = auto()
+    DEL_ACCOUNT = auto()
+    UPDATE_BUDDIES = auto()
+    GET_STATUS = auto()
+    SET_STATUS = auto()
+    CHAT_LIST = auto()
+    CHAT_JOIN = auto()
+    CHAT_PART = auto()
+    CHAT_USERS = auto()
+    CHAT_SEND = auto()
+    CHAT_INVITE = auto()
 
 
 class Buddy:
@@ -55,8 +78,8 @@ class Account:
         """
 
         # try to send message
-        if "send_message" in CALLBACKS:
-            CALLBACKS["send_message"](self, user, msg)
+        if Callback.SEND_MESSAGE in CALLBACKS:
+            CALLBACKS[Callback.SEND_MESSAGE](self, user, msg)
 
         # log message
         log_msg = "message: to {0}: {1}".format(user, msg)
@@ -79,11 +102,11 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
         """
 
         # if there is no callback for messages, simply stop here
-        if "get_messages" not in CALLBACKS:
+        if Callback.GET_MESSAGES not in CALLBACKS:
             return
 
         for account in ACCOUNTS.values():
-            messages = CALLBACKS["get_messages"](account)
+            messages = CALLBACKS[Callback.GET_MESSAGES](account)
             for msg in messages:
                 msg = msg + "\r\n"
                 msg = msg.encode()
@@ -246,8 +269,8 @@ def handle_account_add(params):
     LOGGERS["main"].info(log_msg)
 
     # notify callback (if present) about new account
-    if "add_account" in CALLBACKS:
-        CALLBACKS["add_account"](new_acc)
+    if Callback.ADD_ACCOUNT in CALLBACKS:
+        CALLBACKS[Callback.ADD_ACCOUNT](new_acc)
 
     # inform caller about success
     return "info: new account added."
@@ -270,8 +293,8 @@ def handle_account_delete(acc_id):
     LOGGERS["main"].info(log_msg)
 
     # notify callback (if present) about deleted account
-    if "del_account" in CALLBACKS:
-        CALLBACKS["del_account"](acc_id)
+    if Callback.DEL_ACCOUNT in CALLBACKS:
+        CALLBACKS[Callback.DEL_ACCOUNT](acc_id)
 
     # inform caller about success
     return "info: account {} deleted.".format(acc_id)
@@ -294,8 +317,8 @@ def handle_account_buddies(acc_id, params):
     # update buddy list
     # if "update_buddies" in ACCOUNTS[acc_id].callbacks:
     #     ACCOUNTS[acc_id].callbacks["update_buddies"](ACCOUNTS[acc_id])
-    if "update_buddies" in CALLBACKS:
-        CALLBACKS["update_buddies"](ACCOUNTS[acc_id])
+    if Callback.UPDATE_BUDDIES in CALLBACKS:
+        CALLBACKS[Callback.UPDATE_BUDDIES](ACCOUNTS[acc_id])
 
     # filter online buddies?
     online = False
@@ -343,8 +366,9 @@ def handle_account_collect(acc_id, params):
     LOGGERS[acc_id].info(log_msg)
 
     # collect messages
-    if "collect_messages" in CALLBACKS:
-        return "\r\n".join(CALLBACKS["collect_messages"](ACCOUNTS[acc_id]))
+    if Callback.COLLECT_MESSAGES in CALLBACKS:
+        return "\r\n".join(
+            CALLBACKS[Callback.COLLECT_MESSAGES](ACCOUNTS[acc_id]))
 
     # nothing there
     return ""
@@ -404,8 +428,8 @@ def handle_account_status(acc_id, params):
 
     # get current status
     if params[0] == "get":
-        if "get_status" in CALLBACKS:
-            status = CALLBACKS["get_status"](ACCOUNTS[acc_id])
+        if Callback.GET_STATUS in CALLBACKS:
+            status = CALLBACKS[Callback.GET_STATUS](ACCOUNTS[acc_id])
         else:
             status = "online"   # TODO: do it better?
             return STATUS_FORMAT.format(acc_id, status)
@@ -416,8 +440,8 @@ def handle_account_status(acc_id, params):
             return ""
 
         status = params[1]
-        if "set_status" in CALLBACKS:
-            CALLBACKS["set_status"](ACCOUNTS[acc_id], status)
+        if Callback.SET_STATUS in CALLBACKS:
+            CALLBACKS[Callback.SET_STATUS](ACCOUNTS[acc_id], status)
     return ""
 
 
@@ -439,8 +463,8 @@ def handle_account_chat(acc_id, params):
 
     # list active chats
     if params[0] == "list":
-        if "chat_list" in CALLBACKS:
-            return "\r\n".join(CALLBACKS["chat_list"](ACCOUNTS[acc_id]))
+        if Callback.CHAT_LIST in CALLBACKS:
+            return "\r\n".join(CALLBACKS[Callback.CHAT_LIST](ACCOUNTS[acc_id]))
 
     if len(params) < 2:
         return ""
@@ -448,18 +472,19 @@ def handle_account_chat(acc_id, params):
     chat = params[1]
     # join a chat
     if params[0] == "join":
-        if "chat_join" in CALLBACKS:
-            return CALLBACKS["chat_join"](ACCOUNTS[acc_id], chat)
+        if Callback.CHAT_JOIN in CALLBACKS:
+            return CALLBACKS[Callback.CHAT_JOIN](ACCOUNTS[acc_id], chat)
 
     # leave a chat
     if params[0] == "part":
-        if "chat_part" in CALLBACKS:
-            return CALLBACKS["chat_part"](ACCOUNTS[acc_id], chat)
+        if Callback.CHAT_PART in CALLBACKS:
+            return CALLBACKS[Callback.CHAT_PART](ACCOUNTS[acc_id], chat)
 
     # get users in chat
     if params[0] == "users":
-        if "chat_users" in CALLBACKS:
-            return "\r\n".join(CALLBACKS["chat_users"](ACCOUNTS[acc_id], chat))
+        if Callback.CHAT_USERS in CALLBACKS:
+            return "\r\n".join(
+                CALLBACKS[Callback.CHAT_USERS](ACCOUNTS[acc_id], chat))
 
     if len(params) < 3:
         return ""
@@ -467,14 +492,15 @@ def handle_account_chat(acc_id, params):
     # invite a user to a chat
     if params[0] == "invite":
         user = params[2]
-        if "chat_invite" in CALLBACKS:
-            return CALLBACKS["chat_invite"](ACCOUNTS[acc_id], chat, user)
+        if Callback.CHAT_INVITE in CALLBACKS:
+            return CALLBACKS[Callback.CHAT_INVITE](ACCOUNTS[acc_id], chat,
+                                                   user)
 
     # send a message to a chat
     if params[0] == "send":
         msg = " ".join(params[2:])
-        if "chat_send" in CALLBACKS:
-            return CALLBACKS["chat_send"](ACCOUNTS[acc_id], chat, msg)
+        if Callback.CHAT_SEND in CALLBACKS:
+            return CALLBACKS[Callback.CHAT_SEND](ACCOUNTS[acc_id], chat, msg)
 
     return ""
 
