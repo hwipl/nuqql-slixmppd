@@ -52,7 +52,7 @@ def callback(cb_name, params):
     """
 
     if cb_name in CALLBACKS:
-        return CALLBACKS[cb_name](*params)
+        return CALLBACKS[cb_name](cb_name, params)
 
     return ""
 
