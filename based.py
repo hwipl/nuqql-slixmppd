@@ -54,7 +54,7 @@ def callback(cb_name, params):
     if cb_name in CALLBACKS:
         return CALLBACKS[cb_name](*params)
 
-    return []
+    return ""
 
 
 class Buddy:
@@ -114,10 +114,9 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
         # get messages from callback for each account
         for account in ACCOUNTS.values():
             messages = callback(Callback.GET_MESSAGES, (account))
-            for msg in messages:
-                msg = msg + "\r\n"
-                msg = msg.encode()
-                self.request.sendall(msg)
+            if messages:
+                messages = messages.encode()
+                self.request.sendall(messages)
 
     def handle_messages(self):
         """
@@ -370,7 +369,7 @@ def handle_account_collect(acc_id, params):
     LOGGERS[acc_id].info(log_msg)
 
     # collect messages
-    return "\r\n".join(callback(Callback.COLLECT_MESSAGES, (ACCOUNTS[acc_id])))
+    return callback(Callback.COLLECT_MESSAGES, (ACCOUNTS[acc_id]))
 
 
 def handle_account_send(acc_id, params):
@@ -437,7 +436,7 @@ def handle_account_status(acc_id, params):
             return ""
 
         status = params[1]
-        callback(Callback.SET_STATUS, (ACCOUNTS[acc_id], status))
+        return callback(Callback.SET_STATUS, (ACCOUNTS[acc_id], status))
     return ""
 
 
@@ -459,7 +458,7 @@ def handle_account_chat(acc_id, params):
 
     # list active chats
     if params[0] == "list":
-        return "\r\n".join(callback(Callback.CHAT_LIST, (ACCOUNTS[acc_id])))
+        return callback(Callback.CHAT_LIST, (ACCOUNTS[acc_id]))
 
     if len(params) < 2:
         return ""
@@ -467,18 +466,15 @@ def handle_account_chat(acc_id, params):
     chat = params[1]
     # join a chat
     if params[0] == "join":
-        callback(Callback.CHAT_JOIN, (ACCOUNTS[acc_id], chat))
-        return ""
+        return callback(Callback.CHAT_JOIN, (ACCOUNTS[acc_id], chat))
 
     # leave a chat
     if params[0] == "part":
-        callback(Callback.CHAT_PART, (ACCOUNTS[acc_id], chat))
-        return ""
+        return callback(Callback.CHAT_PART, (ACCOUNTS[acc_id], chat))
 
     # get users in chat
     if params[0] == "users":
-        return "\r\n".join(
-            callback(Callback.CHAT_USERS, (ACCOUNTS[acc_id], chat)))
+        return callback(Callback.CHAT_USERS, (ACCOUNTS[acc_id], chat))
 
     if len(params) < 3:
         return ""
@@ -486,14 +482,12 @@ def handle_account_chat(acc_id, params):
     # invite a user to a chat
     if params[0] == "invite":
         user = params[2]
-        callback(Callback.CHAT_INVITE, (ACCOUNTS[acc_id], chat, user))
-        return ""
+        return callback(Callback.CHAT_INVITE, (ACCOUNTS[acc_id], chat, user))
 
     # send a message to a chat
     if params[0] == "send":
         msg = " ".join(params[2:])
-        callback(Callback.CHAT_SEND, (ACCOUNTS[acc_id], chat, msg))
-        return ""
+        return callback(Callback.CHAT_SEND, (ACCOUNTS[acc_id], chat, msg))
 
     return ""
 
