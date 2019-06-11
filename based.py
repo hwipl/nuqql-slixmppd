@@ -179,13 +179,20 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 return
 
 
-# message format strings
-ACCOUNT_FORMAT = "account: {0} ({1}) {2} {3} [{4}]"
-BUDDY_FORMAT = "buddy: {0} status: {1} name: {2} alias: {3}"
-STATUS_FORMAT = "status: account {0} status: {1}"
-MESSAGE_FORMAT = "message: {0} {1} {2} {3} {4}"
-CHAT_USER_FORMAT = "chat: user: {0} {1} {2} {3} {4}"
-CHAT_LIST_FORMAT = "chat: list: {0} {1} {2} {3}"
+class Format(str, Enum):
+    """
+    Message format strings
+    """
+
+    ACCOUNT = "account: {0} ({1}) {2} {3} [{4}]"
+    BUDDY = "buddy: {0} status: {1} name: {2} alias: {3}"
+    STATUS = "status: account {0} status: {1}"
+    MESSAGE = "message: {0} {1} {2} {3} {4}"
+    CHAT_USER = "chat: user: {0} {1} {2} {3} {4}"
+    CHAT_LIST = "chat: list: {0} {1} {2} {3}"
+
+    def __str__(self):
+        return str(self.value)
 
 
 def handle_account_list():
@@ -195,7 +202,7 @@ def handle_account_list():
 
     replies = []
     for account in ACCOUNTS.values():
-        reply = ACCOUNT_FORMAT.format(account.aid, account.name, account.type,
+        reply = Format.ACCOUNT.format(account.aid, account.name, account.type,
                                       account.user, account.status)
         replies.append(reply)
 
@@ -336,7 +343,7 @@ def handle_account_buddies(acc_id, params):
             continue
 
         # construct replies
-        reply = BUDDY_FORMAT.format(acc_id, buddy.status, buddy.name,
+        reply = Format.BUDDY.format(acc_id, buddy.status, buddy.name,
                                     buddy.alias)
         replies.append(reply)
 
@@ -428,7 +435,7 @@ def handle_account_status(acc_id, params):
     if params[0] == "get":
         status = callback(Callback.GET_STATUS, (ACCOUNTS[acc_id]))
         if status:
-            return STATUS_FORMAT.format(acc_id, status)
+            return Format.STATUS.format(acc_id, status)
 
     # set current status
     if params[0] == "set":
@@ -574,7 +581,7 @@ def format_message(account, tstamp, sender, destination, msg):
 
     msg_body = html.escape(msg)
     msg_body = "<br/>".join(msg_body.split("\n"))
-    return MESSAGE_FORMAT.format(account.aid, destination, tstamp, sender,
+    return Format.MESSAGE.format(account.aid, destination, tstamp, sender,
                                  msg_body)
 
 
