@@ -46,13 +46,13 @@ class Callback(Enum):
     CHAT_INVITE = auto()
 
 
-def callback(cb_name, params):
+def callback(account_id, cb_name, params):
     """
     Call callback if it is registered
     """
 
     if cb_name in CALLBACKS:
-        return CALLBACKS[cb_name](cb_name, params)
+        return CALLBACKS[cb_name](account_id, cb_name, params)
 
     return ""
 
@@ -89,7 +89,7 @@ class Account:
         """
 
         # try to send message
-        callback(Callback.SEND_MESSAGE, (self, user, msg))
+        callback(self.aid, Callback.SEND_MESSAGE, (user, msg))
 
         # log message
         log_msg = "message: to {0}: {1}".format(user, msg)
@@ -113,7 +113,7 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
 
         # get messages from callback for each account
         for account in ACCOUNTS.values():
-            messages = callback(Callback.GET_MESSAGES, (account))
+            messages = callback(account.aid, Callback.GET_MESSAGES, ())
             if messages:
                 messages = messages.encode()
                 self.request.sendall(messages)
@@ -281,7 +281,7 @@ def handle_account_add(params):
     LOGGERS["main"].info(log_msg)
 
     # notify callback (if present) about new account
-    callback(Callback.ADD_ACCOUNT, (new_acc))
+    callback(new_acc.aid, Callback.ADD_ACCOUNT, (new_acc, ))
 
     # inform caller about success
     return "info: new account added."
@@ -304,7 +304,7 @@ def handle_account_delete(acc_id):
     LOGGERS["main"].info(log_msg)
 
     # notify callback (if present) about deleted account
-    callback(Callback.DEL_ACCOUNT, (acc_id))
+    callback(acc_id, Callback.DEL_ACCOUNT, ())
 
     # inform caller about success
     return "info: account {} deleted.".format(acc_id)
@@ -327,7 +327,7 @@ def handle_account_buddies(acc_id, params):
     # update buddy list
     # if "update_buddies" in ACCOUNTS[acc_id].callbacks:
     #     ACCOUNTS[acc_id].callbacks["update_buddies"](ACCOUNTS[acc_id])
-    callback(Callback.UPDATE_BUDDIES, (ACCOUNTS[acc_id]))
+    callback(acc_id, Callback.UPDATE_BUDDIES, ())
 
     # filter online buddies?
     online = False
@@ -374,7 +374,7 @@ def handle_account_collect(acc_id, params):
     LOGGERS[acc_id].info(log_msg)
 
     # collect messages
-    return callback(Callback.COLLECT_MESSAGES, (ACCOUNTS[acc_id]))
+    return callback(acc_id, Callback.COLLECT_MESSAGES, ())
 
 
 def handle_account_send(acc_id, params):
@@ -431,7 +431,7 @@ def handle_account_status(acc_id, params):
 
     # get current status
     if params[0] == "get":
-        status = callback(Callback.GET_STATUS, (ACCOUNTS[acc_id]))
+        status = callback(acc_id, Callback.GET_STATUS, ())
         if status:
             return Format.STATUS.format(acc_id, status)
 
@@ -441,7 +441,7 @@ def handle_account_status(acc_id, params):
             return ""
 
         status = params[1]
-        return callback(Callback.SET_STATUS, (ACCOUNTS[acc_id], status))
+        return callback(acc_id, Callback.SET_STATUS, (status, ))
     return ""
 
 
@@ -463,7 +463,7 @@ def handle_account_chat(acc_id, params):
 
     # list active chats
     if params[0] == "list":
-        return callback(Callback.CHAT_LIST, (ACCOUNTS[acc_id]))
+        return callback(acc_id, Callback.CHAT_LIST, ())
 
     if len(params) < 2:
         return ""
@@ -471,15 +471,15 @@ def handle_account_chat(acc_id, params):
     chat = params[1]
     # join a chat
     if params[0] == "join":
-        return callback(Callback.CHAT_JOIN, (ACCOUNTS[acc_id], chat))
+        return callback(acc_id, Callback.CHAT_JOIN, (chat, ))
 
     # leave a chat
     if params[0] == "part":
-        return callback(Callback.CHAT_PART, (ACCOUNTS[acc_id], chat))
+        return callback(acc_id, Callback.CHAT_PART, (chat, ))
 
     # get users in chat
     if params[0] == "users":
-        return callback(Callback.CHAT_USERS, (ACCOUNTS[acc_id], chat))
+        return callback(acc_id, Callback.CHAT_USERS, (chat, ))
 
     if len(params) < 3:
         return ""
@@ -487,12 +487,12 @@ def handle_account_chat(acc_id, params):
     # invite a user to a chat
     if params[0] == "invite":
         user = params[2]
-        return callback(Callback.CHAT_INVITE, (ACCOUNTS[acc_id], chat, user))
+        return callback(acc_id, Callback.CHAT_INVITE, (chat, user))
 
     # send a message to a chat
     if params[0] == "send":
         msg = " ".join(params[2:])
-        return callback(Callback.CHAT_SEND, (ACCOUNTS[acc_id], chat, msg))
+        return callback(acc_id, Callback.CHAT_SEND, (chat, msg))
 
     return ""
 
