@@ -124,7 +124,7 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
         """
 
         # try to find first complete message
-        eom = self.buffer.find(b"\r\n")
+        eom = self.buffer.find(Format.EOM.encode())
         while eom != -1:
             # extract message from buffer
             msg = self.buffer[:eom]
@@ -132,7 +132,7 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
 
             # check if there is another complete message, for
             # next loop iteration
-            eom = self.buffer.find(b"\r\n")
+            eom = self.buffer.find(Format.EOM.encode())
 
             # start message handling
             try:
@@ -147,7 +147,6 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 continue
 
             # construct reply and send it back
-            reply = reply + "\r\n"
             reply = reply.encode()
             self.request.sendall(reply)
 
@@ -184,12 +183,13 @@ class Format(str, Enum):
     Message format strings
     """
 
-    ACCOUNT = "account: {0} ({1}) {2} {3} [{4}]"
-    BUDDY = "buddy: {0} status: {1} name: {2} alias: {3}"
-    STATUS = "status: account {0} status: {1}"
-    MESSAGE = "message: {0} {1} {2} {3} {4}"
-    CHAT_USER = "chat: user: {0} {1} {2} {3} {4}"
-    CHAT_LIST = "chat: list: {0} {1} {2} {3}"
+    EOM = "\r\n"
+    ACCOUNT = "account: {0} ({1}) {2} {3} [{4}]" + EOM
+    BUDDY = "buddy: {0} status: {1} name: {2} alias: {3}" + EOM
+    STATUS = "status: account {0} status: {1}" + EOM
+    MESSAGE = "message: {0} {1} {2} {3} {4}" + EOM
+    CHAT_USER = "chat: user: {0} {1} {2} {3} {4}" + EOM
+    CHAT_LIST = "chat: list: {0} {1} {2} {3}" + EOM
 
     def __str__(self):
         return str(self.value)
@@ -210,9 +210,8 @@ def handle_account_list():
     log_msg = "account list: {0}".format(replies)
     LOGGERS["main"].info(log_msg)
 
-    # return a single string containing "\r\n" as line separator.
-    # BaseHandler.handle will add the final "\r\n"
-    return "\r\n".join(replies)
+    # return a single string
+    return "".join(replies)
 
 
 def _get_account_id():
@@ -351,9 +350,8 @@ def handle_account_buddies(acc_id, params):
     log_msg = "account {0} buddies: {1}".format(acc_id, replies)
     LOGGERS[acc_id].info(log_msg)
 
-    # return replies as single string with "\r\n" as line separator.
-    # BaseHandler.handle will add the final "\r\n"
-    return "\r\n".join(replies)
+    # return replies as single string
+    return "".join(replies)
 
 
 def handle_account_collect(acc_id, params):
