@@ -776,7 +776,7 @@ def get_command_line_args():
     # use global args variable for storage. TODO: change this?
     global ARGS
     ARGS = parser.parse_args()
-    # return args
+    return ARGS
 
 
 if __name__ == "__main__":
