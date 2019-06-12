@@ -748,6 +748,14 @@ def load_accounts():
         ACCOUNTS = pickle.load(acc_file)
 
 
+def get_accounts():
+    """
+    Helper for getting the accounts
+    """
+
+    return ACCOUNTS
+
+
 def get_command_line_args():
     """
     Parse the command line and return command line arguments:
