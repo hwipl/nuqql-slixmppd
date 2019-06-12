@@ -202,6 +202,7 @@ class Format(str, Enum):
 
     EOM = "\r\n"
     INFO = "info: {0}" + EOM
+    ERROR = "error: {0}" + EOM
     ACCOUNT = "account: {0} ({1}) {2} {3} [{4}]" + EOM
     BUDDY = "buddy: {0} status: {1} name: {2} alias: {3}" + EOM
     STATUS = "status: account {0} status: {1}" + EOM
@@ -533,15 +534,15 @@ def handle_account(parts):
         try:
             acc_id = int(parts[1])
         except ValueError:
-            return "error: invalid account ID"
+            return Format.ERROR.format("invalid account ID")
         command = parts[2]
         params = parts[3:]
         # valid account?
         if acc_id not in ACCOUNTS.keys():
-            return "error: invalid account"
+            return Format.ERROR.format("invalid account")
     else:
         # invalid command, ignore
-        return "error: invalid command"
+        return Format.ERROR.format("invalid command")
 
     if command == "list":
         return handle_account_list()
@@ -569,7 +570,7 @@ def handle_account(parts):
     if command == "chat":
         return handle_account_chat(acc_id, params)
 
-    return "error: unknown command"
+    return Format.ERROR.format("unknown command")
 
 
 def handle_msg(msg):
