@@ -201,6 +201,7 @@ class Format(str, Enum):
     """
 
     EOM = "\r\n"
+    INFO = "info: {0}" + EOM
     ACCOUNT = "account: {0} ({1}) {2} {3} [{4}]" + EOM
     BUDDY = "buddy: {0} status: {1} name: {2} alias: {3}" + EOM
     STATUS = "status: account {0} status: {1}" + EOM
@@ -274,7 +275,7 @@ def handle_account_add(params):
     # make sure the account does not exist
     for acc in ACCOUNTS.values():
         if acc.type == new_acc.type and acc.user == new_acc.user:
-            return "info: account already exists."
+            return Format.INFO.format("account already exists.")
 
     # new account; add it
     ACCOUNTS[new_acc.aid] = new_acc
@@ -301,7 +302,7 @@ def handle_account_add(params):
     callback(new_acc.aid, Callback.ADD_ACCOUNT, (new_acc, ))
 
     # inform caller about success
-    return "info: new account added."
+    return Format.INFO.format("new account added.")
 
 
 def handle_account_delete(acc_id):
@@ -324,7 +325,7 @@ def handle_account_delete(acc_id):
     callback(acc_id, Callback.DEL_ACCOUNT, ())
 
     # inform caller about success
-    return "info: account {} deleted.".format(acc_id)
+    return Format.INFO.format("account {} deleted.".format(acc_id))
 
 
 def handle_account_buddies(acc_id, params):
