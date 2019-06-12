@@ -57,6 +57,23 @@ def callback(account_id, cb_name, params):
     return ""
 
 
+def register_callback(cb_name, cb_func):
+    """
+    Register a callback
+    """
+
+    CALLBACKS[cb_name] = cb_func
+
+
+def unregister_callback(cb_name):
+    """
+    Unregister a callback
+    """
+
+    if cb_name in CALLBACKS:
+        del CALLBACKS[cb_name]
+
+
 class Buddy:
     """
     Storage for buddy specific information
