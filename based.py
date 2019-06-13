@@ -714,6 +714,14 @@ def init_loggers():
         os.chmod(acc_log, stat.S_IRUSR | stat.S_IWUSR)
 
 
+def get_logger(name):
+    """
+    Helper for getting the logger with the name <name>
+    """
+
+    return LOGGERS[name]
+
+
 def store_accounts():
     """
     Store accounts in a file.
