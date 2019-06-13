@@ -290,7 +290,7 @@ def handle_account_add(params):
     os.chmod(account_dir, stat.S_IRWXU)
     account_log = account_dir + "/account.log"
     # logger name must be string
-    LOGGERS[acc_id] = get_logger(str(acc_id), account_log)
+    LOGGERS[acc_id] = init_logger(str(acc_id), account_log)
     os.chmod(account_log, stat.S_IRUSR | stat.S_IWUSR)
 
     # log event
@@ -657,7 +657,7 @@ def run_server(args):
             run_unix_server(args)
 
 
-def get_logger(name, file_name):
+def init_logger(name, file_name):
     """
     Create a logger with <name>, that logs to <file_name>
     """
@@ -697,7 +697,7 @@ def init_loggers():
 
     # main log
     main_log = logs_dir + "/main.log"
-    LOGGERS["main"] = get_logger("main", main_log)
+    LOGGERS["main"] = init_logger("main", main_log)
     os.chmod(main_log, stat.S_IRUSR | stat.S_IWUSR)
 
     # account logs
@@ -710,7 +710,7 @@ def init_loggers():
         os.chmod(acc_dir, stat.S_IRWXU)
         acc_log = acc_dir + "/account.log"
         # logger name must be string
-        LOGGERS[acc] = get_logger(str(acc), acc_log)
+        LOGGERS[acc] = init_logger(str(acc), acc_log)
         os.chmod(acc_log, stat.S_IRUSR | stat.S_IWUSR)
 
 
