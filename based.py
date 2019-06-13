@@ -99,6 +99,7 @@ class Account:
         self.password = password
         self.status = status
         self.buddies = []
+        self.logger = None
 
     def send_msg(self, user, msg):
         """
@@ -290,7 +291,9 @@ def handle_account_add(params):
     os.chmod(account_dir, stat.S_IRWXU)
     account_log = account_dir + "/account.log"
     # logger name must be string
-    LOGGERS[acc_id] = init_logger(str(acc_id), account_log)
+    new_acc.logger = init_logger(str(acc_id), account_log)
+    # TODO: do we still need LOGGERS[acc_id]?
+    LOGGERS[acc_id] = new_acc.logger
     os.chmod(account_log, stat.S_IRUSR | stat.S_IWUSR)
 
     # log event
@@ -710,7 +713,9 @@ def init_loggers():
         os.chmod(acc_dir, stat.S_IRWXU)
         acc_log = acc_dir + "/account.log"
         # logger name must be string
-        LOGGERS[acc] = init_logger(str(acc), acc_log)
+        ACCOUNTS[acc].logger = init_logger(str(acc), acc_log)
+        # TODO: do we still need LOGGERS[acc]?
+        LOGGERS[acc] = ACCOUNTS[acc].logger
         os.chmod(acc_log, stat.S_IRUSR | stat.S_IWUSR)
 
 
