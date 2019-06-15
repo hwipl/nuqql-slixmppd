@@ -15,12 +15,63 @@ import html
 import sys
 import os
 
+from enum import Enum, auto
+
 import daemon
 
 ACCOUNTS = {}
 LOGGERS = {}
 CALLBACKS = {}
 ARGS = None
+
+
+class Callback(Enum):
+    """
+    CALLBACKS constants
+    """
+
+    SEND_MESSAGE = auto()
+    GET_MESSAGES = auto()
+    COLLECT_MESSAGES = auto()
+    ADD_ACCOUNT = auto()
+    DEL_ACCOUNT = auto()
+    UPDATE_BUDDIES = auto()
+    GET_STATUS = auto()
+    SET_STATUS = auto()
+    CHAT_LIST = auto()
+    CHAT_JOIN = auto()
+    CHAT_PART = auto()
+    CHAT_USERS = auto()
+    CHAT_SEND = auto()
+    CHAT_INVITE = auto()
+
+
+def callback(account_id, cb_name, params):
+    """
+    Call callback if it is registered
+    """
+
+    if cb_name in CALLBACKS:
+        return CALLBACKS[cb_name](account_id, cb_name, params)
+
+    return ""
+
+
+def register_callback(cb_name, cb_func):
+    """
+    Register a callback
+    """
+
+    CALLBACKS[cb_name] = cb_func
+
+
+def unregister_callback(cb_name):
+    """
+    Unregister a callback
+    """
+
+    if cb_name in CALLBACKS:
+        del CALLBACKS[cb_name]
 
 
 class Buddy:
@@ -48,6 +99,7 @@ class Account:
         self.password = password
         self.status = status
         self.buddies = []
+        self.logger = None
 
     def send_msg(self, user, msg):
         """
@@ -55,8 +107,7 @@ class Account:
         """
 
         # try to send message
-        if "send_message" in CALLBACKS:
-            CALLBACKS["send_message"](self, user, msg)
+        callback(self.aid, Callback.SEND_MESSAGE, (user, msg))
 
         # log message
         log_msg = "message: to {0}: {1}".format(user, msg)
@@ -78,16 +129,12 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
         Handle messages coming from the backend connections
         """
 
-        # if there is no callback for messages, simply stop here
-        if "get_messages" not in CALLBACKS:
-            return
-
+        # get messages from callback for each account
         for account in ACCOUNTS.values():
-            messages = CALLBACKS["get_messages"](account)
-            for msg in messages:
-                msg = msg + "\r\n"
-                msg = msg.encode()
-                self.request.sendall(msg)
+            messages = callback(account.aid, Callback.GET_MESSAGES, ())
+            if messages:
+                messages = messages.encode()
+                self.request.sendall(messages)
 
     def handle_messages(self):
         """
@@ -95,7 +142,7 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
         """
 
         # try to find first complete message
-        eom = self.buffer.find(b"\r\n")
+        eom = self.buffer.find(Format.EOM.encode())
         while eom != -1:
             # extract message from buffer
             msg = self.buffer[:eom]
@@ -103,7 +150,7 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
 
             # check if there is another complete message, for
             # next loop iteration
-            eom = self.buffer.find(b"\r\n")
+            eom = self.buffer.find(Format.EOM.encode())
 
             # start message handling
             try:
@@ -118,7 +165,6 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 continue
 
             # construct reply and send it back
-            reply = reply + "\r\n"
             reply = reply.encode()
             self.request.sendall(reply)
 
@@ -150,13 +196,23 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 return
 
 
-# message format strings
-ACCOUNT_FORMAT = "account: {0} ({1}) {2} {3} [{4}]"
-BUDDY_FORMAT = "buddy: {0} status: {1} name: {2} alias: {3}"
-STATUS_FORMAT = "status: account {0} status: {1}"
-MESSAGE_FORMAT = "message: {0} {1} {2} {3} {4}"
-CHAT_USER_FORMAT = "chat: user: {0} {1} {2} {3} {4}"
-CHAT_LIST_FORMAT = "chat: list: {0} {1} {2} {3}"
+class Format(str, Enum):
+    """
+    Message format strings
+    """
+
+    EOM = "\r\n"
+    INFO = "info: {0}" + EOM
+    ERROR = "error: {0}" + EOM
+    ACCOUNT = "account: {0} ({1}) {2} {3} [{4}]" + EOM
+    BUDDY = "buddy: {0} status: {1} name: {2} alias: {3}" + EOM
+    STATUS = "status: account {0} status: {1}" + EOM
+    MESSAGE = "message: {0} {1} {2} {3} {4}" + EOM
+    CHAT_USER = "chat: user: {0} {1} {2} {3} {4}" + EOM
+    CHAT_LIST = "chat: list: {0} {1} {2} {3}" + EOM
+
+    def __str__(self):
+        return str(self.value)
 
 
 def handle_account_list():
@@ -166,7 +222,7 @@ def handle_account_list():
 
     replies = []
     for account in ACCOUNTS.values():
-        reply = ACCOUNT_FORMAT.format(account.aid, account.name, account.type,
+        reply = Format.ACCOUNT.format(account.aid, account.name, account.type,
                                       account.user, account.status)
         replies.append(reply)
 
@@ -174,9 +230,8 @@ def handle_account_list():
     log_msg = "account list: {0}".format(replies)
     LOGGERS["main"].info(log_msg)
 
-    # return a single string containing "\r\n" as line separator.
-    # BaseHandler.handle will add the final "\r\n"
-    return "\r\n".join(replies)
+    # return a single string
+    return "".join(replies)
 
 
 def _get_account_id():
@@ -222,7 +277,7 @@ def handle_account_add(params):
     # make sure the account does not exist
     for acc in ACCOUNTS.values():
         if acc.type == new_acc.type and acc.user == new_acc.user:
-            return "info: account already exists."
+            return Format.INFO.format("account already exists.")
 
     # new account; add it
     ACCOUNTS[new_acc.aid] = new_acc
@@ -236,7 +291,9 @@ def handle_account_add(params):
     os.chmod(account_dir, stat.S_IRWXU)
     account_log = account_dir + "/account.log"
     # logger name must be string
-    LOGGERS[acc_id] = get_logger(str(acc_id), account_log)
+    new_acc.logger = init_logger(str(acc_id), account_log)
+    # TODO: do we still need LOGGERS[acc_id]?
+    LOGGERS[acc_id] = new_acc.logger
     os.chmod(account_log, stat.S_IRUSR | stat.S_IWUSR)
 
     # log event
@@ -246,11 +303,10 @@ def handle_account_add(params):
     LOGGERS["main"].info(log_msg)
 
     # notify callback (if present) about new account
-    if "add_account" in CALLBACKS:
-        CALLBACKS["add_account"](new_acc)
+    callback(new_acc.aid, Callback.ADD_ACCOUNT, (new_acc, ))
 
     # inform caller about success
-    return "info: new account added."
+    return Format.INFO.format("new account added.")
 
 
 def handle_account_delete(acc_id):
@@ -270,11 +326,10 @@ def handle_account_delete(acc_id):
     LOGGERS["main"].info(log_msg)
 
     # notify callback (if present) about deleted account
-    if "del_account" in CALLBACKS:
-        CALLBACKS["del_account"](acc_id)
+    callback(acc_id, Callback.DEL_ACCOUNT, ())
 
     # inform caller about success
-    return "info: account {} deleted.".format(acc_id)
+    return Format.INFO.format("account {} deleted.".format(acc_id))
 
 
 def handle_account_buddies(acc_id, params):
@@ -294,8 +349,7 @@ def handle_account_buddies(acc_id, params):
     # update buddy list
     # if "update_buddies" in ACCOUNTS[acc_id].callbacks:
     #     ACCOUNTS[acc_id].callbacks["update_buddies"](ACCOUNTS[acc_id])
-    if "update_buddies" in CALLBACKS:
-        CALLBACKS["update_buddies"](ACCOUNTS[acc_id])
+    callback(acc_id, Callback.UPDATE_BUDDIES, ())
 
     # filter online buddies?
     online = False
@@ -310,7 +364,7 @@ def handle_account_buddies(acc_id, params):
             continue
 
         # construct replies
-        reply = BUDDY_FORMAT.format(acc_id, buddy.status, buddy.name,
+        reply = Format.BUDDY.format(acc_id, buddy.status, buddy.name,
                                     buddy.alias)
         replies.append(reply)
 
@@ -318,9 +372,8 @@ def handle_account_buddies(acc_id, params):
     log_msg = "account {0} buddies: {1}".format(acc_id, replies)
     LOGGERS[acc_id].info(log_msg)
 
-    # return replies as single string with "\r\n" as line separator.
-    # BaseHandler.handle will add the final "\r\n"
-    return "\r\n".join(replies)
+    # return replies as single string
+    return "".join(replies)
 
 
 def handle_account_collect(acc_id, params):
@@ -343,11 +396,7 @@ def handle_account_collect(acc_id, params):
     LOGGERS[acc_id].info(log_msg)
 
     # collect messages
-    if "collect_messages" in CALLBACKS:
-        return "\r\n".join(CALLBACKS["collect_messages"](ACCOUNTS[acc_id]))
-
-    # nothing there
-    return ""
+    return callback(acc_id, Callback.COLLECT_MESSAGES, ())
 
 
 def handle_account_send(acc_id, params):
@@ -404,11 +453,9 @@ def handle_account_status(acc_id, params):
 
     # get current status
     if params[0] == "get":
-        if "get_status" in CALLBACKS:
-            status = CALLBACKS["get_status"](ACCOUNTS[acc_id])
-        else:
-            status = "online"   # TODO: do it better?
-            return STATUS_FORMAT.format(acc_id, status)
+        status = callback(acc_id, Callback.GET_STATUS, ())
+        if status:
+            return Format.STATUS.format(acc_id, status)
 
     # set current status
     if params[0] == "set":
@@ -416,8 +463,7 @@ def handle_account_status(acc_id, params):
             return ""
 
         status = params[1]
-        if "set_status" in CALLBACKS:
-            CALLBACKS["set_status"](ACCOUNTS[acc_id], status)
+        return callback(acc_id, Callback.SET_STATUS, (status, ))
     return ""
 
 
@@ -439,8 +485,7 @@ def handle_account_chat(acc_id, params):
 
     # list active chats
     if params[0] == "list":
-        if "chat_list" in CALLBACKS:
-            return "\r\n".join(CALLBACKS["chat_list"](ACCOUNTS[acc_id]))
+        return callback(acc_id, Callback.CHAT_LIST, ())
 
     if len(params) < 2:
         return ""
@@ -448,18 +493,15 @@ def handle_account_chat(acc_id, params):
     chat = params[1]
     # join a chat
     if params[0] == "join":
-        if "chat_join" in CALLBACKS:
-            return CALLBACKS["chat_join"](ACCOUNTS[acc_id], chat)
+        return callback(acc_id, Callback.CHAT_JOIN, (chat, ))
 
     # leave a chat
     if params[0] == "part":
-        if "chat_part" in CALLBACKS:
-            return CALLBACKS["chat_part"](ACCOUNTS[acc_id], chat)
+        return callback(acc_id, Callback.CHAT_PART, (chat, ))
 
     # get users in chat
     if params[0] == "users":
-        if "chat_users" in CALLBACKS:
-            return "\r\n".join(CALLBACKS["chat_users"](ACCOUNTS[acc_id], chat))
+        return callback(acc_id, Callback.CHAT_USERS, (chat, ))
 
     if len(params) < 3:
         return ""
@@ -467,14 +509,12 @@ def handle_account_chat(acc_id, params):
     # invite a user to a chat
     if params[0] == "invite":
         user = params[2]
-        if "chat_invite" in CALLBACKS:
-            return CALLBACKS["chat_invite"](ACCOUNTS[acc_id], chat, user)
+        return callback(acc_id, Callback.CHAT_INVITE, (chat, user))
 
     # send a message to a chat
     if params[0] == "send":
         msg = " ".join(params[2:])
-        if "chat_send" in CALLBACKS:
-            return CALLBACKS["chat_send"](ACCOUNTS[acc_id], chat, msg)
+        return callback(acc_id, Callback.CHAT_SEND, (chat, msg))
 
     return ""
 
@@ -497,15 +537,15 @@ def handle_account(parts):
         try:
             acc_id = int(parts[1])
         except ValueError:
-            return "error: invalid account ID"
+            return Format.ERROR.format("invalid account ID")
         command = parts[2]
         params = parts[3:]
         # valid account?
         if acc_id not in ACCOUNTS.keys():
-            return "error: invalid account"
+            return Format.ERROR.format("invalid account")
     else:
         # invalid command, ignore
-        return "error: invalid command"
+        return Format.ERROR.format("invalid command")
 
     if command == "list":
         return handle_account_list()
@@ -533,7 +573,7 @@ def handle_account(parts):
     if command == "chat":
         return handle_account_chat(acc_id, params)
 
-    return "error: unknown command"
+    return Format.ERROR.format("unknown command")
 
 
 def handle_msg(msg):
@@ -561,7 +601,7 @@ def format_message(account, tstamp, sender, destination, msg):
 
     msg_body = html.escape(msg)
     msg_body = "<br/>".join(msg_body.split("\n"))
-    return MESSAGE_FORMAT.format(account.aid, destination, tstamp, sender,
+    return Format.MESSAGE.format(account.aid, destination, tstamp, sender,
                                  msg_body)
 
 
@@ -620,7 +660,7 @@ def run_server(args):
             run_unix_server(args)
 
 
-def get_logger(name, file_name):
+def init_logger(name, file_name):
     """
     Create a logger with <name>, that logs to <file_name>
     """
@@ -660,7 +700,7 @@ def init_loggers():
 
     # main log
     main_log = logs_dir + "/main.log"
-    LOGGERS["main"] = get_logger("main", main_log)
+    LOGGERS["main"] = init_logger("main", main_log)
     os.chmod(main_log, stat.S_IRUSR | stat.S_IWUSR)
 
     # account logs
@@ -673,8 +713,18 @@ def init_loggers():
         os.chmod(acc_dir, stat.S_IRWXU)
         acc_log = acc_dir + "/account.log"
         # logger name must be string
-        LOGGERS[acc] = get_logger(str(acc), acc_log)
+        ACCOUNTS[acc].logger = init_logger(str(acc), acc_log)
+        # TODO: do we still need LOGGERS[acc]?
+        LOGGERS[acc] = ACCOUNTS[acc].logger
         os.chmod(acc_log, stat.S_IRUSR | stat.S_IWUSR)
+
+
+def get_logger(name):
+    """
+    Helper for getting the logger with the name <name>
+    """
+
+    return LOGGERS[name]
 
 
 def store_accounts():
@@ -713,6 +763,14 @@ def load_accounts():
         ACCOUNTS = pickle.load(acc_file)
 
 
+def get_accounts():
+    """
+    Helper for getting the accounts
+    """
+
+    return ACCOUNTS
+
+
 def get_command_line_args():
     """
     Parse the command line and return command line arguments:
@@ -741,7 +799,7 @@ def get_command_line_args():
     # use global args variable for storage. TODO: change this?
     global ARGS
     ARGS = parser.parse_args()
-    # return args
+    return ARGS
 
 
 if __name__ == "__main__":
