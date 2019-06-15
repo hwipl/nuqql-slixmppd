@@ -23,6 +23,7 @@ from slixmpp import ClientXMPP
 
 
 import based
+from based import Format
 
 # dictionary for all xmpp client connections
 CONNECTIONS = {}
@@ -138,8 +139,8 @@ class NuqqlClient(ClientXMPP):
         if presence['muc']['nick'] != nick:
             user = presence["muc"]["nick"]
             user_alias = user   # try to get a real alias?
-            msg = based.CHAT_USER_FORMAT.format(self.account.aid, chat, user,
-                                                user_alias, status)
+            msg = Format.CHAT_USER.format(self.account.aid, chat, user,
+                                          user_alias, status)
             self.lock.acquire()
             # append to messages only
             self.messages.append(msg)
@@ -334,8 +335,7 @@ class NuqqlClient(ClientXMPP):
                 status = pres['show']
 
         self.lock.acquire()
-        self.messages.append(based.STATUS_FORMAT.format(self.account.aid,
-                                                        status))
+        self.messages.append(Format.STATUS.format(self.account.aid, status))
         self.lock.release()
 
     def _chat_list(self):
@@ -347,7 +347,7 @@ class NuqqlClient(ClientXMPP):
             chat_alias = chat   # TODO: use something else as alias?
             nick = self.plugin['xep_0045'].our_nicks[chat]
             self.lock.acquire()
-            self.messages.append(based.CHAT_LIST_FORMAT.format(
+            self.messages.append(Format.CHAT_LIST.format(
                 self.account.aid, chat, chat_alias, nick))
             self.lock.release()
 
@@ -405,7 +405,7 @@ class NuqqlClient(ClientXMPP):
             # TODO: try to retrieve user's presence as status?
             status = "join"
             self.lock.acquire()
-            self.messages.append(based.CHAT_USER_FORMAT.format(
+            self.messages.append(Format.CHAT_USER.format(
                 self.account.aid, chat, user, user_alias, status))
             self.lock.release()
 
