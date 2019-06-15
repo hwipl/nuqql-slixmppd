@@ -23,7 +23,7 @@ from slixmpp import ClientXMPP
 
 
 import based
-from based import Format
+from based import Format, Callback
 
 # dictionary for all xmpp client connections
 CONNECTIONS = {}
@@ -235,21 +235,21 @@ class NuqqlClient(ClientXMPP):
 
         # handle commands in queue
         for cmd, params in queue:
-            if cmd == "message":
+            if cmd == Callback.SEND_MESSAGE:
                 self._send_message(params)
-            if cmd == "set_status":
+            if cmd == Callback.SET_STATUS:
                 self._set_status(params[0])
-            if cmd == "get_status":
+            if cmd == Callback.GET_STATUS:
                 self._get_status()
-            if cmd == "chat_list":
+            if cmd == Callback.CHAT_LIST:
                 self._chat_list()
-            if cmd == "chat_join":
-                self._chat_join(params[0], params[1])
-            if cmd == "chat_part":
+            if cmd == Callback.CHAT_JOIN:
+                self._chat_join(params[0])
+            if cmd == Callback.CHAT_PART:
                 self._chat_part(params[0])
-            if cmd == "chat_users":
+            if cmd == Callback.CHAT_USERS:
                 self._chat_users(params[0])
-            if cmd == "chat_invite":
+            if cmd == Callback.CHAT_INVITE:
                 self._chat_invite(params[0], params[1])
 
     def update_buddies(self):
@@ -351,13 +351,12 @@ class NuqqlClient(ClientXMPP):
                 self.account.aid, chat, chat_alias, nick))
             self.lock.release()
 
-    def _chat_join(self, chat, nick):
+    def _chat_join(self, chat):
         """
         Join chat on account
         """
 
-        if nick == "":
-            nick = self.jid
+        nick = self.jid
         self.plugin['xep_0045'].join_muc(chat,
                                          nick,
                                          # If a room password is needed, use:
@@ -417,75 +416,86 @@ class NuqqlClient(ClientXMPP):
         self.plugin['xep_0045'].invite(chat, user)
 
 
-def update_buddies(account):
+def update_buddies(account_id, _cmd, _params):
     """
     Read buddies from client connection
     """
 
     try:
-        xmpp = CONNECTIONS[account.aid]
+        xmpp = CONNECTIONS[account_id]
     except KeyError:
         # no active connection
-        return
+        return ""
 
     # clear buddy list
-    account.buddies = []
+    xmpp.account.buddies = []
 
     # parse buddy list and insert buddies into buddy list
     xmpp.lock.acquire()
     for buddy in xmpp.buddies:
-        account.buddies.append(buddy)
+        xmpp.account.buddies.append(buddy)
     xmpp.lock.release()
 
+    return ""
 
-def get_messages(account):
+
+def get_messages(account_id, _cmd, _params):
     """
     Read messages from client connection
     """
 
     try:
-        xmpp = CONNECTIONS[account.aid]
+        xmpp = CONNECTIONS[account_id]
     except KeyError:
         # no active connection
         return []
 
     # get and return messages
-    return xmpp.get_messages()
+    return "".join(xmpp.get_messages())
 
 
-def collect_messages(account):
+def collect_messages(account_id, _cmd, _params):
     """
     Collect all messages from client connection
     """
 
     try:
-        xmpp = CONNECTIONS[account.aid]
+        xmpp = CONNECTIONS[account_id]
     except KeyError:
         # no active connection
-        return []
+        return ""
 
     # collect and return messages
-    return xmpp.collect()
+    return "".join(xmpp.collect())
 
 
-def enqueue(account, cmd, params):
+def enqueue(account_id, cmd, params):
     """
     Helper for adding commands to the command queue of the account/client
     """
 
     try:
-        xmpp = CONNECTIONS[account.aid]
+        xmpp = CONNECTIONS[account_id]
     except KeyError:
         # no active connection
-        return
+        return ""
 
     xmpp.enqueue_command(cmd, params)
 
+    return ""
 
-def send_message(account, jid, msg, msg_type="chat"):
+
+def send_message(account_id, cmd, params):
     """
     send a message to a jabber id on an account
     """
+
+    # parse parameters
+    if len(params) > 2:
+        dest, msg, msg_type = params
+    else:
+        dest, msg = params
+        msg_type = "chat"
 
     # nuqql sends a html-escaped message; construct "plain-text" version and
     # xhtml version using nuqql's message and use them as message body later
@@ -495,78 +505,19 @@ def send_message(account, jid, msg, msg_type="chat"):
     msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
     # send message
-    enqueue(account, "message", (jid, msg, html_msg, msg_type))
+    enqueue(account_id, cmd, (dest, msg, html_msg, msg_type))
 
-
-def set_status(account, status):
-    """
-    Set the current status of the account
-    """
-
-    enqueue(account, "set_status", (status, ))
-
-
-def get_status(account):
-    """
-    Get the current status of the account
-    """
-
-    enqueue(account, "get_status", ())
     return ""
 
 
-def chat_list(account):
-    """
-    List active chats of account
-    """
-
-    enqueue(account, "chat_list", ())
-    return []
-
-
-def chat_join(account, chat, nick=""):
-    """
-    Join chat on account
-    """
-
-    enqueue(account, "chat_join", (chat, nick))
-    return ""
-
-
-def chat_part(account, chat):
-    """
-    Leave chat on account
-    """
-
-    enqueue(account, "chat_part", (chat, ))
-    return ""
-
-
-def chat_send(account, chat, msg):
+def chat_send(account_id, _cmd, params):
     """
     Send message to chat on account
     """
 
-    send_message(account, chat, msg, msg_type="groupchat")
-    return ""
-
-
-def chat_users(account, chat):
-    """
-    Get list of users in chat on account
-    """
-
-    enqueue(account, "chat_users", (chat, ))
-    return []
-
-
-def chat_invite(account, chat, user):
-    """
-    Invite user to chat on account
-    """
-
-    enqueue(account, "chat_invite", (chat, user))
-    return ""
+    chat, msg = params
+    return send_message(account_id, Callback.SEND_MESSAGE,
+                        (chat, msg, "groupchat"))
 
 
 def run_client(account, ready, running):
@@ -608,7 +559,7 @@ def run_client(account, ready, running):
         xmpp.update_buddies()
 
 
-def add_account(account):
+def add_account(account_id, _cmd, params):
     """
     Add a new account (from based) and run a new slixmpp client thread for it
     """
@@ -621,17 +572,20 @@ def add_account(account):
     running.set()
 
     # create and start thread
+    account = params[0]
     new_thread = Thread(target=run_client, args=(account, ready, running))
     new_thread.start()
 
     # save thread in active threads dictionary
-    THREADS[account.aid] = (new_thread, running)
+    THREADS[account_id] = (new_thread, running)
 
     # wait until thread initialized everything
     ready.wait()
 
+    return ""
 
-def del_account(account_id):
+
+def del_account(account_id, _cmd, _params):
     """
     Delete an existing account (in based) and
     stop slixmpp client thread for it
@@ -645,6 +599,8 @@ def del_account(account_id):
     # cleanup
     del CONNECTIONS[account_id]
     del THREADS[account_id]
+
+    return ""
 
 
 def init_logging(args):
@@ -686,23 +642,23 @@ def main():
     # start a client connection for every xmpp account in it's own thread
     for acc in based.get_accounts().values():
         if acc.type == "xmpp":
-            add_account(acc)
+            add_account(acc.aid, Callback.ADD_ACCOUNT, (acc, ))
 
     # register callbacks
-    based.CALLBACKS["add_account"] = add_account
-    based.CALLBACKS["del_account"] = del_account
-    based.CALLBACKS["update_buddies"] = update_buddies
-    based.CALLBACKS["get_messages"] = get_messages
-    based.CALLBACKS["send_message"] = send_message
-    based.CALLBACKS["collect_messages"] = collect_messages
-    based.CALLBACKS["set_status"] = set_status
-    based.CALLBACKS["get_status"] = get_status
-    based.CALLBACKS["chat_list"] = chat_list
-    based.CALLBACKS["chat_join"] = chat_join
-    based.CALLBACKS["chat_part"] = chat_part
-    based.CALLBACKS["chat_send"] = chat_send
-    based.CALLBACKS["chat_users"] = chat_users
-    based.CALLBACKS["chat_invite"] = chat_invite
+    based.register_callback(Callback.ADD_ACCOUNT, add_account)
+    based.register_callback(Callback.DEL_ACCOUNT, del_account)
+    based.register_callback(Callback.UPDATE_BUDDIES, update_buddies)
+    based.register_callback(Callback.GET_MESSAGES, get_messages)
+    based.register_callback(Callback.SEND_MESSAGE, send_message)
+    based.register_callback(Callback.COLLECT_MESSAGES, collect_messages)
+    based.register_callback(Callback.SET_STATUS, enqueue)
+    based.register_callback(Callback.GET_STATUS, enqueue)
+    based.register_callback(Callback.CHAT_LIST, enqueue)
+    based.register_callback(Callback.CHAT_JOIN, enqueue)
+    based.register_callback(Callback.CHAT_PART, enqueue)
+    based.register_callback(Callback.CHAT_SEND, chat_send)
+    based.register_callback(Callback.CHAT_USERS, enqueue)
+    based.register_callback(Callback.CHAT_INVITE, enqueue)
 
     # run the server for the nuqql connection
     try:
