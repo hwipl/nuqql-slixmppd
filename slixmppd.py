@@ -679,9 +679,9 @@ def main():
     # initialize logging and loggers
     init_logging(args)
     based.init_loggers()
-    for logger in based.LOGGERS.values():
+    for acc in based.get_accounts().values():
         # make sure other loggers do not also write to root logger
-        logger.propagate = False
+        acc.logger.propagate = False
 
     # start a client connection for every xmpp account in it's own thread
     for acc in based.get_accounts().values():
