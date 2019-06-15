@@ -684,7 +684,7 @@ def main():
         logger.propagate = False
 
     # start a client connection for every xmpp account in it's own thread
-    for acc in based.ACCOUNTS.values():
+    for acc in based.get_accounts().values():
         if acc.type == "xmpp":
             add_account(acc)
 
