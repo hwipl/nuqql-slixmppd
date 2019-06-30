@@ -25,6 +25,15 @@ In the telnet session you can:
 
 ## Changes
 
+* devel:
+  * Add group chat support and messages:
+    * list chats on account: `account <id> chat list`
+    * join a chat on account: `account <id> chat join <chat>`
+    * part a chat on account: `account <id> chat part <chat>`
+    * send a message to a chat on account:
+      `account <id> chat send <chat> <message>`
+    * list users of a chat on account: `account <id> chat users <chat>`
+  * Cleanups, fixes, and improvements
 * v0.2:
   * Add account status message:
     * Set current status with: `account <id> status set <status>`
