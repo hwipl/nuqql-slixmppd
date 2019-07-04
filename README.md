@@ -25,7 +25,7 @@ In the telnet session you can:
 
 ## Changes
 
-* devel:
+* v0.3:
   * Add group chat support and messages:
     * list chats on account: `account <id> chat list`
     * join a chat on account: `account <id> chat join <chat>`
