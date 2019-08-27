@@ -40,6 +40,7 @@ class NuqqlClient(ClientXMPP):
         # password: account.password
         ClientXMPP.__init__(self, account.user, account.password)
         self.account = account
+        self.account.status = "offline"     # set "online" in session_start()
 
         # event handlers
         self.add_event_handler("session_start", self.session_start)
@@ -69,6 +70,7 @@ class NuqqlClient(ClientXMPP):
         # empty presence means "available"/"online", so that's ok.
         self.send_presence()
         self.get_roster()
+        self.account.status = "online"      # flag account as "online" now
 
     def message(self, msg):
         """
@@ -555,6 +557,12 @@ def run_client(account, ready, running):
         # process xmpp client for 0.1 seconds, then send pending outgoing
         # messages and update the (safe copy of the) buddy list
         xmpp.process(timeout=0.1)
+        # if account is offline, skip other steps to avoid issues with sending
+        # commands/messages over the (uninitialized) xmpp connection
+        if xmpp.account.status == "offline":
+            # flush buddy list
+            xmpp.account.buddies = []
+            continue
         xmpp.handle_queue()
         xmpp.update_buddies()
 
