@@ -43,7 +43,7 @@ class NuqqlClient(ClientXMPP):
         self.account.status = "offline"     # set "online" in session_start()
 
         # event handlers
-        self.add_event_handler("session_start", self.session_start)
+        self.add_event_handler("session_start", self._session_start)
         self.add_event_handler("message", self.message)
         self.add_event_handler("groupchat_message", self.muc_message)
         self.add_event_handler("groupchat_invite", self._muc_invite)
@@ -58,7 +58,7 @@ class NuqqlClient(ClientXMPP):
         self.muc_cache = []
         self.muc_filter_own = True
 
-    def session_start(self, _event):
+    def _session_start(self, _event):
         """
         Session start handler
         """
