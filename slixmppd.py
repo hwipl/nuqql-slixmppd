@@ -128,7 +128,7 @@ class NuqqlClient(ClientXMPP):
 
             # save timestamp and message in messages list and history
             tstamp = int(tstamp)
-            formated_msg = based.format_message(
+            formated_msg = based.format_chat_msg(
                 self.account, tstamp, msg["from"], msg["to"], msg["body"])
             self.lock.acquire()
             self.messages.append(formated_msg)
