@@ -210,6 +210,7 @@ class Format(str, Enum):
     MESSAGE = "message: {0} {1} {2} {3} {4}" + EOM
     CHAT_USER = "chat: user: {0} {1} {2} {3} {4}" + EOM
     CHAT_LIST = "chat: list: {0} {1} {2} {3}" + EOM
+    CHAT_MSG = "chat: msg: {0} {1} {2} {3} {4}" + EOM
 
     def __str__(self):
         return str(self.value)
@@ -603,6 +604,17 @@ def format_message(account, tstamp, sender, destination, msg):
     msg_body = "<br/>".join(msg_body.split("\n"))
     return Format.MESSAGE.format(account.aid, destination, tstamp, sender,
                                  msg_body)
+
+
+def format_chat_msg(account, tstamp, sender, destination, msg):
+    """
+    Helper for formatting "chat msg" messages
+    """
+
+    msg_body = html.escape(msg)
+    msg_body = "<br/>".join(msg_body.split("\n"))
+    return Format.CHAT_MSG.format(account.aid, destination, tstamp, sender,
+                                  msg_body)
 
 
 def run_inet_server(args):
