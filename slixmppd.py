@@ -645,12 +645,15 @@ def main():
     # parse command line arguments
     args = based.get_command_line_args()
 
+    # initialize logging and main logger
+    init_logging(args)
+    based.init_main_logger()
+
     # load accounts
     based.load_accounts()
 
-    # initialize logging and loggers
-    init_logging(args)
-    based.init_loggers()
+    # initialize account loggers
+    based.init_account_loggers()
     for acc in based.get_accounts().values():
         # make sure other loggers do not also write to root logger
         acc.logger.propagate = False
