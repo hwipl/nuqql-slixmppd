@@ -645,15 +645,15 @@ def main():
     # parse command line arguments
     args = based.get_command_line_args()
 
+    # load accounts
+    based.load_accounts()
+
     # initialize logging and loggers
     init_logging(args)
     based.init_loggers()
     for acc in based.get_accounts().values():
         # make sure other loggers do not also write to root logger
         acc.logger.propagate = False
-
-    # load accounts
-    based.load_accounts()
 
     # start a client connection for every xmpp account in it's own thread
     for acc in based.get_accounts().values():
