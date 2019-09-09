@@ -700,9 +700,9 @@ def init_logger(name, file_name):
     return logger
 
 
-def init_loggers():
+def init_main_logger():
     """
-    Initialize loggers for main log and account specific logs
+    Initialize logger for main log
     """
 
     # make sure logs directory exists
@@ -714,6 +714,17 @@ def init_loggers():
     main_log = logs_dir + "/main.log"
     LOGGERS["main"] = init_logger("main", main_log)
     os.chmod(main_log, stat.S_IRUSR | stat.S_IWUSR)
+
+
+def init_account_loggers():
+    """
+    Initialize loggers for account specific logs
+    """
+
+    # make sure logs directory exists
+    logs_dir = ARGS.dir + "/logs"
+    pathlib.Path(logs_dir).mkdir(parents=True, exist_ok=True)
+    os.chmod(logs_dir, stat.S_IRWXU)
 
     # account logs
     account_dir = logs_dir + "/account"
@@ -827,11 +838,14 @@ if __name__ == "__main__":
     # parse command line arguments
     get_command_line_args()
 
-    # initialize loggers
-    init_loggers()
+    # initialize main logger
+    init_main_logger()
 
     # load accounts
     load_accounts()
+
+    # initialize account loggers
+    init_account_loggers()
 
     # start server
     try:
