@@ -821,7 +821,8 @@ def get_command_line_args():
                         \"unix\" for AF_UNIX")
     parser.add_argument("--address", default="localhost",
                         help="AF_INET listen address")
-    parser.add_argument("--port", default=32000, help="AF_INET listen port")
+    parser.add_argument("--port", type=int, default=32000,
+                        help="AF_INET listen port")
     parser.add_argument("--sockfile", default="based.sock",
                         help="AF_UNIX socket file in DIR")
     parser.add_argument("--dir", default=os.getcwd() + "/nuqql-based",
