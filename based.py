@@ -621,7 +621,11 @@ def run_inet_server(args):
     """
 
     listen = (args.address, args.port)
-    with socketserver.TCPServer(listen, NuqqlBaseHandler) as server:
+    with socketserver.TCPServer(listen, NuqqlBaseHandler,
+                                bind_and_activate=False) as server:
+        server.allow_reuse_address = True
+        server.server_bind()
+        server.server_activate()
         server.serve_forever()
 
 
