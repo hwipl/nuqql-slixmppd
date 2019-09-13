@@ -649,40 +649,26 @@ def run_server(args):
     Run the server; can be AF_INET or AF_UNIX.
     """
 
-    # AF_INET
-    if args.af == "inet":
-        if args.daemonize:
-            # exit if we cannot load the daemon module
-            try:
-                import daemon
-            except ImportError:
-                print("Could not load python module \"daemon\", "
-                      "no daemonize support.")
-                return
+    if args.daemonize:
+        # exit if we cannot load the daemon module
+        try:
+            import daemon
+        except ImportError:
+            print("Could not load python module \"daemon\", "
+                  "no daemonize support.")
+            return
 
-            # daemonize the server
-            with daemon.DaemonContext():
+        # daemonize the server
+        with daemon.DaemonContext():
+            if args.af == "inet":
                 run_inet_server(args)
-        else:
-            # run in foreground
-            run_inet_server(args)
-
-    # AF_UNIX
-    elif args.af == "unix":
-        if args.daemonize:
-            # exit if we cannot load the daemon module
-            try:
-                import daemon
-            except ImportError:
-                print("Could not load python module \"daemon\", "
-                      "no daemonize support.")
-                return
-
-            # daemonize the server
-            with daemon.DaemonContext():
+            elif args.af == "unix":
                 run_unix_server(args)
-        else:
-            # run in foreground
+    else:
+        # run in foreground
+        if args.af == "inet":
+            run_inet_server(args)
+        elif args.af == "unix":
             run_unix_server(args)
 
 
