@@ -603,7 +603,7 @@ def handle_msg(msg):
     # others
     # TODO: ver? who?
     # ignore rest for now...
-    return ""
+    return ("msg", "")
 
 
 def format_message(account, tstamp, sender, destination, msg):
