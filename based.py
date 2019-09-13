@@ -17,8 +17,6 @@ import os
 
 from enum import Enum, auto
 
-import daemon
-
 ACCOUNTS = {}
 LOGGERS = {}
 CALLBACKS = {}
@@ -654,6 +652,14 @@ def run_server(args):
     # AF_INET
     if args.af == "inet":
         if args.daemonize:
+            # exit if we cannot load the daemon module
+            try:
+                import daemon
+            except ImportError:
+                print("Could not load python module \"daemon\", "
+                      "no daemonize support.")
+                return
+
             # daemonize the server
             with daemon.DaemonContext():
                 run_inet_server(args)
@@ -664,6 +670,14 @@ def run_server(args):
     # AF_UNIX
     elif args.af == "unix":
         if args.daemonize:
+            # exit if we cannot load the daemon module
+            try:
+                import daemon
+            except ImportError:
+                print("Could not load python module \"daemon\", "
+                      "no daemonize support.")
+                return
+
             # daemonize the server
             with daemon.DaemonContext():
                 run_unix_server(args)
