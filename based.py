@@ -155,16 +155,18 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 msg = msg.decode()
             except UnicodeDecodeError as error:
                 # invalid message format, drop client
-                return error
-            reply = handle_msg(msg)
+                return "bye", error
+            cmd, reply = handle_msg(msg)
 
-            # if there's nothing to send back, just continue
-            if reply == "":
-                continue
+            if cmd == "msg" and reply != "":
+                # there is a message for the user, construct reply and send it
+                # back to the user
+                reply = reply.encode()
+                self.request.sendall(reply)
 
-            # construct reply and send it back
-            reply = reply.encode()
-            self.request.sendall(reply)
+            # if we need to drop the client, or exit the server, return
+            if cmd in ("bye", "quit"):
+                return cmd
 
     def handle(self):
         # self.request is the client socket
@@ -188,10 +190,16 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 self.buffer += self.data
 
             # handle each complete message
-            error = self.handle_messages()
-            if error:
-                # some error occured handling the messages, drop client
+            cmd = self.handle_messages()
+
+            # handle special return codes
+            if cmd == "bye":
+                # some error occured handling the messages or user said bye,
+                # drop the client
                 return
+            if cmd == "quit":
+                # quit the server
+                sys.exit()
 
 
 class Format(str, Enum):
@@ -585,7 +593,12 @@ def handle_msg(msg):
 
     # account specific commands
     if len(parts) >= 2 and parts[0] == "account":
-        return handle_account(parts)
+        return ("msg", handle_account(parts))
+
+    # handle "bye" and "quit" commands
+    if parts[0] in ("bye", "quit"):
+        # TODO: add callbacks?
+        return (parts[0], "Goodbye.")
 
     # others
     # TODO: ver? who?
