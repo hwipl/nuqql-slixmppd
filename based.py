@@ -28,6 +28,8 @@ class Callback(Enum):
     CALLBACKS constants
     """
 
+    QUIT = auto()
+    DISCONNECT = auto()
     SEND_MESSAGE = auto()
     GET_MESSAGES = auto()
     COLLECT_MESSAGES = auto()
@@ -597,7 +599,12 @@ def handle_msg(msg):
 
     # handle "bye" and "quit" commands
     if parts[0] in ("bye", "quit"):
-        # TODO: add callbacks?
+        # call disconnect or quit callback in every account
+        for acc in get_accounts().values():
+            if parts[0] == "bye":
+                callback(acc.aid, Callback.DISCONNECT, ())
+            if parts[0] == "quit":
+                callback(acc.aid, Callback.QUIT, ())
         return (parts[0], "Goodbye.")
 
     # others
