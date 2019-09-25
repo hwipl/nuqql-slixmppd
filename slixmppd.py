@@ -637,6 +637,17 @@ def init_logging(args):
     os.chmod(log_file, stat.S_IRWXU)
 
 
+def stop_thread(account_id, _cmd, _params):
+    """
+    Quit backend/stop client thread
+    """
+
+    # stop thread
+    print("Signalling account thread to stop.")
+    _thread, running = THREADS[account_id]
+    running.clear()
+
+
 def main():
     """
     Main function, initialize everything and start server
@@ -664,6 +675,7 @@ def main():
             add_account(acc.aid, Callback.ADD_ACCOUNT, (acc, ))
 
     # register callbacks
+    based.register_callback(Callback.QUIT, stop_thread)
     based.register_callback(Callback.ADD_ACCOUNT, add_account)
     based.register_callback(Callback.DEL_ACCOUNT, del_account)
     based.register_callback(Callback.UPDATE_BUDDIES, update_buddies)
@@ -684,8 +696,13 @@ def main():
         based.run_server(args)
     except KeyboardInterrupt:
         # try to terminate all threads
-        for thread, running in THREADS.values():
+        for _thread, running in THREADS.values():
+            print("Signalling account thread to stop.")
             running.clear()
+    finally:
+        # wait for threads to finish
+        print("Waiting for all threads to finish. This might take a while.")
+        for thread, _running in THREADS.values():
             thread.join()
         sys.exit()
 
