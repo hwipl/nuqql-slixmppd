@@ -839,7 +839,7 @@ def get_command_line_args():
     """
 
     # parse command line parameters
-    parser = argparse.ArgumentParser(description="Run a basic nuqql daemon.")
+    parser = argparse.ArgumentParser(description="Run nuqql backend.")
     parser.add_argument("--af", choices=["inet", "unix"], default="inet",
                         help="socket address family: \"inet\" for AF_INET, \
                         \"unix\" for AF_UNIX")
@@ -852,7 +852,7 @@ def get_command_line_args():
     parser.add_argument("--dir", default=os.getcwd() + "/nuqql-based",
                         help="working directory")
     parser.add_argument("-d", "--daemonize", action="store_true",
-                        help="daemonize process (default: true)")
+                        help="daemonize process")
     # use global args variable for storage. TODO: change this?
     global ARGS
     ARGS = parser.parse_args()
