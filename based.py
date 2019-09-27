@@ -20,7 +20,7 @@ from enum import Enum, auto
 ACCOUNTS = {}
 LOGGERS = {}
 CALLBACKS = {}
-ARGS = None
+CONFIG = {}
 
 
 class Callback(Enum):
@@ -295,7 +295,7 @@ def handle_account_add(params):
     store_accounts()
 
     # create mew logger
-    account_dir = ARGS.dir + "/logs/account/{0}".format(acc_id)
+    account_dir = CONFIG["dir"] + "/logs/account/{0}".format(acc_id)
     pathlib.Path(account_dir).mkdir(parents=True, exist_ok=True)
     os.chmod(account_dir, stat.S_IRWXU)
     account_log = account_dir + "/account.log"
@@ -635,12 +635,12 @@ def format_chat_msg(account, tstamp, sender, destination, msg):
                                   msg_body)
 
 
-def run_inet_server(args):
+def run_inet_server(config):
     """
     Run an AF_INET server
     """
 
-    listen = (args.address, args.port)
+    listen = (config["address"], config["port"])
     with socketserver.TCPServer(listen, NuqqlBaseHandler,
                                 bind_and_activate=False) as server:
         server.allow_reuse_address = True
@@ -649,14 +649,14 @@ def run_inet_server(args):
         server.serve_forever()
 
 
-def run_unix_server(args):
+def run_unix_server(config):
     """
     Run an AF_UNIX server
     """
 
     # make sure paths exist
-    pathlib.Path(args.dir).mkdir(parents=True, exist_ok=True)
-    sockfile = args.dir + "/" + args.sockfile
+    pathlib.Path(config["dir"]).mkdir(parents=True, exist_ok=True)
+    sockfile = config["dir"] + "/" + config["sockfile"]
     try:
         # unlink sockfile of previous execution of the server
         os.unlink(sockfile)
@@ -668,12 +668,12 @@ def run_unix_server(args):
         server.serve_forever()
 
 
-def run_server(args):
+def run_server(config):
     """
     Run the server; can be AF_INET or AF_UNIX.
     """
 
-    if args.daemonize:
+    if config["daemonize"]:
         # exit if we cannot load the daemon module
         try:
             import daemon
@@ -684,16 +684,16 @@ def run_server(args):
 
         # daemonize the server
         with daemon.DaemonContext():
-            if args.af == "inet":
-                run_inet_server(args)
-            elif args.af == "unix":
-                run_unix_server(args)
+            if config["af"] == "inet":
+                run_inet_server(config)
+            elif config["af"] == "unix":
+                run_unix_server(config)
     else:
         # run in foreground
-        if args.af == "inet":
-            run_inet_server(args)
-        elif args.af == "unix":
-            run_unix_server(args)
+        if config["af"] == "inet":
+            run_inet_server(config)
+        elif config["af"] == "unix":
+            run_unix_server(config)
 
 
 def init_logger(name, file_name):
@@ -730,7 +730,7 @@ def init_main_logger():
     """
 
     # make sure logs directory exists
-    logs_dir = ARGS.dir + "/logs"
+    logs_dir = CONFIG["dir"] + "/logs"
     pathlib.Path(logs_dir).mkdir(parents=True, exist_ok=True)
     os.chmod(logs_dir, stat.S_IRWXU)
 
@@ -746,7 +746,7 @@ def init_account_loggers():
     """
 
     # make sure logs directory exists
-    logs_dir = ARGS.dir + "/logs"
+    logs_dir = CONFIG["dir"] + "/logs"
     pathlib.Path(logs_dir).mkdir(parents=True, exist_ok=True)
     os.chmod(logs_dir, stat.S_IRWXU)
 
@@ -780,7 +780,7 @@ def store_accounts():
     """
 
     # set accounts file and init configparser
-    accounts_file = pathlib.Path(ARGS.dir + "/accounts.ini")
+    accounts_file = pathlib.Path(CONFIG["dir"] + "/accounts.ini")
     config = configparser.ConfigParser()
     config.optionxform = lambda option: option
 
@@ -811,9 +811,9 @@ def load_accounts():
     """
 
     # make sure path and file exist
-    pathlib.Path(ARGS.dir).mkdir(parents=True, exist_ok=True)
-    os.chmod(ARGS.dir, stat.S_IRWXU)
-    accounts_file = pathlib.Path(ARGS.dir + "/accounts.ini")
+    pathlib.Path(CONFIG["dir"]).mkdir(parents=True, exist_ok=True)
+    os.chmod(CONFIG["dir"], stat.S_IRWXU)
+    accounts_file = pathlib.Path(CONFIG["dir"] + "/accounts.ini")
     if not accounts_file.exists():
         return
 
@@ -865,30 +865,100 @@ def get_command_line_args():
         daemonize:  daemonize process?
     """
 
-    # parse command line parameters
-    parser = argparse.ArgumentParser(description="Run nuqql backend.")
-    parser.add_argument("--af", choices=["inet", "unix"], default="inet",
+    # init command line argument parser
+    parser = argparse.ArgumentParser(description="Run nuqql backend.",
+                                     argument_default=argparse.SUPPRESS)
+    parser.add_argument("--af", choices=["inet", "unix"],
                         help="socket address family: \"inet\" for AF_INET, \
                         \"unix\" for AF_UNIX")
-    parser.add_argument("--address", default="localhost",
-                        help="AF_INET listen address")
-    parser.add_argument("--port", type=int, default=32000,
-                        help="AF_INET listen port")
-    parser.add_argument("--sockfile", default="based.sock",
-                        help="AF_UNIX socket file in DIR")
-    parser.add_argument("--dir", default=os.getcwd() + "/nuqql-based",
-                        help="working directory")
+    parser.add_argument("--address", help="AF_INET listen address")
+    parser.add_argument("--port", type=int, help="AF_INET listen port")
+    parser.add_argument("--sockfile", help="AF_UNIX socket file in DIR")
+    parser.add_argument("--dir", help="working directory")
     parser.add_argument("-d", "--daemonize", action="store_true",
                         help="daemonize process")
-    # use global args variable for storage. TODO: change this?
-    global ARGS
-    ARGS = parser.parse_args()
-    return ARGS
+
+    # parse command line arguments and return result as dict
+    args = parser.parse_args()
+    return vars(args)
+
+
+def read_config_file():
+    """
+    Read configuration file into config
+    """
+
+    # make sure path and file exist
+    pathlib.Path(CONFIG["dir"]).mkdir(parents=True, exist_ok=True)
+    os.chmod(CONFIG["dir"], stat.S_IRWXU)
+    config_file = pathlib.Path(CONFIG["dir"] + "/config.ini")
+    if not config_file.exists():
+        return
+
+    # make sure only user can read/write file before using it
+    os.chmod(config_file, stat.S_IRUSR | stat.S_IWUSR)
+
+    # read config file
+    try:
+        config = configparser.ConfigParser()
+        config.read(config_file)
+    except configparser.Error as error:
+        error_msg = "Error loading config file: {}".format(error)
+        LOGGERS["main"].error(error_msg)
+
+    for section in config.sections():
+        # try to read config from config file
+        if section == "config":
+            try:
+                CONFIG["af"] = config[section].get(
+                    "af", fallback=CONFIG["af"])
+                CONFIG["address"] = config[section].get(
+                    "address", fallback=CONFIG["address"])
+                CONFIG["port"] = config[section].getint(
+                    "port", fallback=CONFIG["port"])
+                CONFIG["sockfile"] = config[section].get(
+                    "sockfile", fallback=CONFIG["sockfile"])
+                CONFIG["dir"] = config[section].get(
+                    "dir", fallback=CONFIG["dir"])
+                CONFIG["daemonize"] = config[section].get(
+                    "daemonize", fallback=CONFIG["daemonize"])
+            except ValueError as error:
+                error_msg = "Error parsing config file: {}".format(error)
+                LOGGERS["main"].error(error_msg)
+
+
+def init_config():
+    """
+    Initialize backend configuration from config file and
+    command line parameters
+    """
+
+    # define defaults
+    CONFIG["af"] = "inet"
+    CONFIG["address"] = "localhost"
+    CONFIG["port"] = 32000
+    CONFIG["sockfile"] = "based.sock"
+    CONFIG["dir"] = os.getcwd() + "/nuqql-based"
+    CONFIG["daemonize"] = False
+
+    # read command line arguments
+    args = get_command_line_args()
+
+    # read config file and load it into config
+    if "dir" in args:
+        CONFIG["dir"] = args["dir"]
+    read_config_file()
+
+    # overwrite config with command line arguments
+    for key, value in args.items():
+        CONFIG[key] = value
+
+    return CONFIG
 
 
 if __name__ == "__main__":
-    # parse command line arguments
-    get_command_line_args()
+    # initialize configuration from command line and config file
+    init_config()
 
     # initialize main logger
     init_main_logger()
@@ -901,6 +971,6 @@ if __name__ == "__main__":
 
     # start server
     try:
-        run_server(ARGS)
+        run_server(CONFIG)
     except KeyboardInterrupt:
         sys.exit()
