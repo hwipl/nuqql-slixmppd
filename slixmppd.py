@@ -619,14 +619,14 @@ def del_account(account_id, _cmd, _params):
     return ""
 
 
-def init_logging(args):
+def init_logging(config):
     """
     Configure logging module, so slixmpp logs are written to a file
     """
 
     # determine logging path from command line parameters and
     # make sure it exists
-    logs_dir = args.dir + "/logs"
+    logs_dir = config["dir"] + "/logs"
     pathlib.Path(logs_dir).mkdir(parents=True, exist_ok=True)
     log_file = logs_dir + "/slixmpp.log"
 
@@ -653,11 +653,11 @@ def main():
     Main function, initialize everything and start server
     """
 
-    # parse command line arguments
-    args = based.get_command_line_args()
+    # initialize configuration from command line and config file
+    config = based.init_config()
 
     # initialize logging and main logger
-    init_logging(args)
+    init_logging(config)
     based.init_main_logger()
 
     # load accounts
@@ -693,7 +693,7 @@ def main():
 
     # run the server for the nuqql connection
     try:
-        based.run_server(args)
+        based.run_server(config)
     except KeyboardInterrupt:
         # try to terminate all threads
         for _thread, running in THREADS.values():
