@@ -5,10 +5,10 @@ Basic nuqql backend
 """
 
 import socketserver
+import configparser
 import argparse
 import pathlib
 import logging
-import pickle
 import select
 import stat
 import html
@@ -779,15 +779,28 @@ def store_accounts():
     Store accounts in a file.
     """
 
-    accounts_file = pathlib.Path(ARGS.dir + "/accounts.pickle")
+    # set accounts file and init configparser
+    accounts_file = pathlib.Path(ARGS.dir + "/accounts.ini")
+    config = configparser.ConfigParser()
+    config.optionxform = lambda option: option
+
+    # construct accounts config that will be written to the accounts file
+    for acc in ACCOUNTS.values():
+        section = "account {}".format(acc.aid)
+        config[section] = {}
+        config[section]["id"] = str(acc.aid)
+        config[section]["type"] = acc.type
+        config[section]["user"] = acc.user
+        config[section]["password"] = acc.password
+
     try:
-        with open(accounts_file, "wb") as acc_file:
+        with open(accounts_file, "w") as acc_file:
             # make sure only user can read/write file before storing anything
             os.chmod(accounts_file, stat.S_IRUSR | stat.S_IWUSR)
 
-            # Pickle accounts using the highest protocol available.
-            pickle.dump(ACCOUNTS, acc_file, pickle.HIGHEST_PROTOCOL)
-    except (OSError, pickle.PicklingError) as error:
+            # write accounts to file
+            config.write(acc_file)
+    except (OSError, configparser.Error) as error:
         error_msg = "Error storing accounts file: {}".format(error)
         LOGGERS["main"].error(error_msg)
 
@@ -800,23 +813,37 @@ def load_accounts():
     # make sure path and file exist
     pathlib.Path(ARGS.dir).mkdir(parents=True, exist_ok=True)
     os.chmod(ARGS.dir, stat.S_IRWXU)
-    accounts_file = pathlib.Path(ARGS.dir + "/accounts.pickle")
+    accounts_file = pathlib.Path(ARGS.dir + "/accounts.ini")
     if not accounts_file.exists():
         return
 
     # make sure only user can read/write file before using it
     os.chmod(accounts_file, stat.S_IRUSR | stat.S_IWUSR)
 
+    # read config file
     try:
-        with open(accounts_file, "rb") as acc_file:
-            # The protocol version used is detected automatically, so we do not
-            # have to specify it.
-            global ACCOUNTS
-            ACCOUNTS = pickle.load(acc_file)
-    except (OSError, pickle.UnpicklingError, AttributeError, EOFError,
-            ImportError, IndexError) as error:
+        config = configparser.ConfigParser()
+        config.read(accounts_file)
+    except configparser.Error as error:
         error_msg = "Error loading accounts file: {}".format(error)
         LOGGERS["main"].error(error_msg)
+
+    for section in config.sections():
+        # try to read account from account file
+        try:
+            acc_id = int(config[section]["id"])
+            acc_type = config[section]["type"]
+            acc_user = config[section]["user"]
+            acc_pass = config[section]["password"]
+        except KeyError as error:
+            error_msg = "Error loading account: {}".format(error)
+            LOGGERS["main"].error(error_msg)
+            continue
+
+        # add account
+        new_acc = Account(aid=acc_id, atype=acc_type, user=acc_user,
+                          password=acc_pass)
+        ACCOUNTS[new_acc.aid] = new_acc
 
 
 def get_accounts():
