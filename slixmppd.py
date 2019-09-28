@@ -632,7 +632,8 @@ def init_logging(config):
 
     # configure logging module to write to file
     log_format = "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"
-    logging.basicConfig(filename=log_file, level=logging.DEBUG,
+    loglevel = based.LOGLEVELS[config["loglevel"]]
+    logging.basicConfig(filename=log_file, level=loglevel,
                         format=log_format, datefmt="%s")
     os.chmod(log_file, stat.S_IRWXU)
 
