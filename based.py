@@ -956,6 +956,14 @@ def init_config():
     return CONFIG
 
 
+def get_config():
+    """
+    Helper for getting the config
+    """
+
+    return CONFIG
+
+
 if __name__ == "__main__":
     # initialize configuration from command line and config file
     init_config()
