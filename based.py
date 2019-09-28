@@ -904,7 +904,7 @@ def read_config_file():
         config.read(config_file)
     except configparser.Error as error:
         error_msg = "Error loading config file: {}".format(error)
-        LOGGERS["main"].error(error_msg)
+        print(error_msg)
 
     for section in config.sections():
         # try to read config from config file
@@ -924,7 +924,7 @@ def read_config_file():
                     "daemonize", fallback=CONFIG["daemonize"])
             except ValueError as error:
                 error_msg = "Error parsing config file: {}".format(error)
-                LOGGERS["main"].error(error_msg)
+                print(error_msg)
 
 
 def init_config():
