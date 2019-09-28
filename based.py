@@ -920,7 +920,7 @@ def read_config_file():
                     "sockfile", fallback=CONFIG["sockfile"])
                 CONFIG["dir"] = config[section].get(
                     "dir", fallback=CONFIG["dir"])
-                CONFIG["daemonize"] = config[section].get(
+                CONFIG["daemonize"] = config[section].getboolean(
                     "daemonize", fallback=CONFIG["daemonize"])
             except ValueError as error:
                 error_msg = "Error parsing config file: {}".format(error)
