@@ -22,6 +22,15 @@ LOGGERS = {}
 CALLBACKS = {}
 CONFIG = {}
 
+# logging levels
+LOGLEVELS = {
+    "debug":    logging.DEBUG,
+    "info":     logging.INFO,
+    "warn":     logging.WARNING,
+    "error":    logging.ERROR
+}
+DEFAULT_LOGLEVEL = "warn"
+
 
 class Callback(Enum):
     """
@@ -701,13 +710,16 @@ def init_logger(name, file_name):
     Create a logger with <name>, that logs to <file_name>
     """
 
+    # determine logging level from config
+    loglevel = LOGLEVELS[CONFIG["loglevel"]]
+
     # create logger
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(loglevel)
 
     # create handler
     fileh = logging.FileHandler(file_name)
-    fileh.setLevel(logging.DEBUG)
+    fileh.setLevel(loglevel)
 
     # create formatter
     formatter = logging.Formatter(
@@ -877,6 +889,8 @@ def get_command_line_args():
     parser.add_argument("--dir", help="working directory")
     parser.add_argument("-d", "--daemonize", action="store_true",
                         help="daemonize process")
+    parser.add_argument("--loglevel", choices=["debug", "info", "warn",
+                                               "error"], help="Logging level")
 
     # parse command line arguments and return result as dict
     args = parser.parse_args()
@@ -904,7 +918,7 @@ def read_config_file():
         config.read(config_file)
     except configparser.Error as error:
         error_msg = "Error loading config file: {}".format(error)
-        LOGGERS["main"].error(error_msg)
+        print(error_msg)
 
     for section in config.sections():
         # try to read config from config file
@@ -920,11 +934,19 @@ def read_config_file():
                     "sockfile", fallback=CONFIG["sockfile"])
                 CONFIG["dir"] = config[section].get(
                     "dir", fallback=CONFIG["dir"])
-                CONFIG["daemonize"] = config[section].get(
+                CONFIG["daemonize"] = config[section].getboolean(
                     "daemonize", fallback=CONFIG["daemonize"])
+                CONFIG["loglevel"] = config[section].get(
+                    "loglevel", fallback=CONFIG["loglevel"])
             except ValueError as error:
                 error_msg = "Error parsing config file: {}".format(error)
-                LOGGERS["main"].error(error_msg)
+                print(error_msg)
+
+    # make sure log level is correct
+    if CONFIG["loglevel"] not in LOGLEVELS:
+        CONFIG["loglevel"] = DEFAULT_LOGLEVEL
+        error_msg = "Error parsing config file: wrong loglevel"
+        print(error_msg)
 
 
 def init_config():
@@ -940,6 +962,7 @@ def init_config():
     CONFIG["sockfile"] = "based.sock"
     CONFIG["dir"] = os.getcwd() + "/nuqql-based"
     CONFIG["daemonize"] = False
+    CONFIG["loglevel"] = DEFAULT_LOGLEVEL
 
     # read command line arguments
     args = get_command_line_args()
@@ -952,6 +975,14 @@ def init_config():
     # overwrite config with command line arguments
     for key, value in args.items():
         CONFIG[key] = value
+
+    return CONFIG
+
+
+def get_config():
+    """
+    Helper for getting the config
+    """
 
     return CONFIG
 
