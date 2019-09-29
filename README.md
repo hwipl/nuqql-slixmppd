@@ -40,19 +40,23 @@ See `slixmppd.py --help` for a list of command line arguments:
 ```
 usage: slixmppd.py [-h] [--af {inet,unix}] [--address ADDRESS] [--port PORT]
                    [--sockfile SOCKFILE] [--dir DIR] [-d]
+                   [--loglevel {debug,info,warn,error}]
 
 Run nuqql backend.
 
 optional arguments:
-  -h, --help           show this help message and exit
-  --af {inet,unix}     socket address family: "inet" for AF_INET, "unix" for
-                       AF_UNIX
-  --address ADDRESS    AF_INET listen address
-  --port PORT          AF_INET listen port
-  --sockfile SOCKFILE  AF_UNIX socket file in DIR
-  --dir DIR            working directory
-  -d, --daemonize      daemonize process
+  -h, --help            show this help message and exit
+  --af {inet,unix}      socket address family: "inet" for AF_INET, "unix" for
+                        AF_UNIX
+  --address ADDRESS     AF_INET listen address
+  --port PORT           AF_INET listen port
+  --sockfile SOCKFILE   AF_UNIX socket file in DIR
+  --dir DIR             working directory
+  -d, --daemonize       daemonize process
+  --loglevel {debug,info,warn,error}
+                        Logging level
 ```
+
 
 ## Changes
 
