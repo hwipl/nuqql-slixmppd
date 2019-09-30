@@ -60,6 +60,23 @@ optional arguments:
 
 ## Changes
 
+* devel:
+  * Add new commands:
+    * `bye`: disconnect from the backend.
+    * `quit`: quit the backend.
+    * `help`: show list of commands and their description.
+  * Add and use "chat msg" message format for group chat messages
+  * Store accounts in .ini file `accounts.ini` in the backend's working
+    directory. Note: existing accounts have to be re-added to the backend to
+    be usable with the .ini file.
+  * Add configuration file support: in addition to the command line arguments,
+    configuration parameters can now be set in the .ini file `config.ini` in
+    the backend's working directory.
+  * Add `loglevel` configuration parameter to command line arguments and
+    configuration file for setting the logging level to `debug`, `info`,
+    `warn`, or `error`. Default: `warn`.
+  * Make daemon python module optional
+  * Fixes and improvements
 * v0.3:
   * Add group chat support and messages:
     * list chats on account: `account <id> chat list`
