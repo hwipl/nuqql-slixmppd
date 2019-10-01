@@ -86,6 +86,11 @@ class NuqqlClient(ClientXMPP):
         """
 
         if msg['type'] in ('chat', 'normal'):
+            if msg.xml.find("{http://jabber.org/protocol/muc#user}x"):
+                # this seems to be a muc (invite) message, ignore it for now
+                # TODO: add special handling?
+                return
+
             # if message contains a timestamp, use it
             tstamp = msg['delay']['stamp']
             if tstamp:
