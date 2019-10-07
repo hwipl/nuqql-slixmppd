@@ -536,6 +536,20 @@ def chat_send(account_id, _cmd, params):
                         (chat, msg, "groupchat"))
 
 
+def _reconnect(xmpp, last_connect):
+    """
+    Try to reconnect to the server if last connect is older than 10 seconds.
+    """
+
+    cur_time = time.time()
+    if cur_time - last_connect < 10:
+        return last_connect
+
+    print("Reconnecting:", xmpp.account.user)
+    xmpp.connect()
+    return cur_time
+
+
 def run_client(account, ready, running):
     """
     Run client connection in a new thread,
@@ -558,6 +572,7 @@ def run_client(account, ready, running):
     xmpp.register_plugin('xep_0045')    # Multi-User Chat
     xmpp.register_plugin('xep_0199')    # XMPP Ping
     xmpp.connect()
+    last_connect = time.time()
 
     # save client connection in active connections dictionary
     CONNECTIONS[account.aid] = xmpp
@@ -574,6 +589,7 @@ def run_client(account, ready, running):
         # if account is offline, skip other steps to avoid issues with sending
         # commands/messages over the (uninitialized) xmpp connection
         if xmpp.account.status == "offline":
+            last_connect = _reconnect(xmpp, last_connect)
             continue
         xmpp.handle_queue()
         xmpp.update_buddies()
