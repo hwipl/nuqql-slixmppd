@@ -79,6 +79,7 @@ class NuqqlClient(ClientXMPP):
         """
 
         self.account.status = "offline"     # flag account as "offline"
+        self.buddies = []                   # flush buddy list
 
     def message(self, msg):
         """
@@ -573,8 +574,6 @@ def run_client(account, ready, running):
         # if account is offline, skip other steps to avoid issues with sending
         # commands/messages over the (uninitialized) xmpp connection
         if xmpp.account.status == "offline":
-            # flush buddy list
-            xmpp.account.buddies = []
             continue
         xmpp.handle_queue()
         xmpp.update_buddies()
