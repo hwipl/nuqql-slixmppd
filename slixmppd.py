@@ -49,6 +49,7 @@ class NuqqlClient(ClientXMPP):
         self.add_event_handler("groupchat_message", self.muc_message)
         self.add_event_handler("groupchat_invite", self._muc_invite)
 
+        self._status = None     # status configured by user
         self.lock = lock
         self.buddies = []
         self.queue = []
@@ -72,6 +73,9 @@ class NuqqlClient(ClientXMPP):
         self.send_presence()
         self.get_roster()
         self.account.status = "online"      # flag account as "online" now
+        if self._status:
+            # set a previously configured status
+            self._set_status(self._status)
 
     def _disconnected(self, _event):
         """
@@ -326,6 +330,8 @@ class NuqqlClient(ClientXMPP):
         Set the current status of the account
         """
 
+        # save status and send presence to server
+        self._status = status
         self.send_presence(pshow=status)
 
     def _get_status(self):
