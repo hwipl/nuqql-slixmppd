@@ -60,7 +60,7 @@ optional arguments:
 
 ## Changes
 
-* devel:
+* v0.4:
   * Add new commands:
     * `bye`: disconnect from the backend.
     * `quit`: quit the backend.
