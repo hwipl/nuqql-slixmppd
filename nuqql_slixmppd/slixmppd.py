@@ -22,8 +22,8 @@ from slixmpp import ClientXMPP
 # from slixmpp.exceptions import IqError, IqTimeout
 
 
-import based
-from based import Format, Callback
+from nuqql_based import based
+from nuqql_based.based import Format, Callback
 
 # dictionary for all xmpp client connections
 CONNECTIONS = {}
