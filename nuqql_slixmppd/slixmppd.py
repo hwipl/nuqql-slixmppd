@@ -680,7 +680,7 @@ def main():
     """
 
     # initialize configuration from command line and config file
-    config = based.init_config()
+    config = based.init_config("slixmppd")
 
     # initialize logging and main logger
     init_logging(config)
