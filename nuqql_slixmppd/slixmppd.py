@@ -13,7 +13,6 @@ import unicodedata
 import logging
 import stat
 import os
-import pathlib
 
 
 from threading import Thread, Lock, Event
@@ -652,9 +651,9 @@ def init_logging(config):
 
     # determine logging path from command line parameters and
     # make sure it exists
-    logs_dir = config["dir"] + "/logs"
-    pathlib.Path(logs_dir).mkdir(parents=True, exist_ok=True)
-    log_file = logs_dir + "/slixmpp.log"
+    logs_dir = config["dir"] / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    log_file = logs_dir / "slixmpp.log"
 
     # configure logging module to write to file
     log_format = "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"
