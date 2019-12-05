@@ -4,7 +4,6 @@
 slixmppd
 """
 
-import sys
 import time
 import asyncio
 import html
@@ -14,15 +13,16 @@ import logging
 import stat
 import os
 
-
 from threading import Thread, Lock, Event
 
+# slixmpp
 from slixmpp import ClientXMPP
 # from slixmpp.exceptions import IqError, IqTimeout
 
-
-from nuqql_based import based
-from nuqql_based.based import Format, Callback
+# nuqql-based
+from nuqql_based.based import Based
+from nuqql_based.callback import Callback
+from nuqql_based.message import Message
 
 # dictionary for all xmpp client connections
 CONNECTIONS = {}
@@ -50,10 +50,7 @@ class NuqqlClient(ClientXMPP):
 
         self._status = None     # status configured by user
         self.lock = lock
-        self.buddies = []
         self.queue = []
-        self.history = []
-        self.messages = []
 
         self.muc_invites = {}
         self.muc_cache = []
@@ -82,7 +79,7 @@ class NuqqlClient(ClientXMPP):
         """
 
         self.account.status = "offline"     # flag account as "offline"
-        self.buddies = []                   # flush buddy list
+        self.account.flush_buddies()        # flush buddy list
 
     def message(self, msg):
         """
@@ -106,12 +103,9 @@ class NuqqlClient(ClientXMPP):
 
             # save timestamp and message in messages list and history
             tstamp = int(tstamp)
-            formated_msg = based.format_message(
+            formatted_msg = Message.message(
                 self.account, tstamp, msg["from"], msg["to"], msg["body"])
-            self.lock.acquire()
-            self.messages.append(formated_msg)
-            self.history.append(formated_msg)
-            self.lock.release()
+            self.account.receive_msg(formatted_msg)
 
     def muc_message(self, msg):
         """
@@ -137,12 +131,9 @@ class NuqqlClient(ClientXMPP):
 
             # save timestamp and message in messages list and history
             tstamp = int(tstamp)
-            formated_msg = based.format_chat_msg(
+            formatted_msg = Message.chat_msg(
                 self.account, tstamp, msg["mucnick"], chat, msg["body"])
-            self.lock.acquire()
-            self.messages.append(formated_msg)
-            self.history.append(formated_msg)
-            self.lock.release()
+            self.account.receive_msg(formatted_msg)
 
     def _muc_presence(self, presence, status):
         """
@@ -158,12 +149,9 @@ class NuqqlClient(ClientXMPP):
         if presence['muc']['nick'] != nick:
             user = presence["muc"]["nick"]
             user_alias = user   # try to get a real alias?
-            msg = Format.CHAT_USER.format(self.account.aid, chat, user,
-                                          user_alias, status)
-            self.lock.acquire()
-            # append to messages only
-            self.messages.append(msg)
-            self.lock.release()
+            msg = Message.chat_user(self.account.aid, chat, user, user_alias,
+                                    status)
+            self.account.receive_msg(msg)
 
     def _muc_invite(self, inv):
         """
@@ -187,33 +175,6 @@ class NuqqlClient(ClientXMPP):
         """
 
         self._muc_presence(presence, "offline")
-
-    def collect(self):
-        """
-        Collect all messages from message log
-        """
-
-        self.lock.acquire()
-        # create a copy of the history
-        history = self.history[:]
-        self.lock.release()
-
-        # return the copy of the history
-        return history
-
-    def get_messages(self):
-        """
-        Read incoming messages
-        """
-
-        self.lock.acquire()
-        # create a copy of the message list, and flush the message list
-        messages = self.messages[:]
-        self.messages = []
-        self.lock.release()
-
-        # return the copy of the message list
-        return messages
 
     def _send_message(self, message_tuple):
         """
@@ -305,7 +266,7 @@ class NuqqlClient(ClientXMPP):
                 continue
 
             # add buddies to buddy list
-            buddy = based.Buddy(name=jid, alias=alias, status=status)
+            buddy = (jid, alias, status)
             buddies.append(buddy)
 
             # cleanup invites
@@ -315,14 +276,11 @@ class NuqqlClient(ClientXMPP):
         # handle pending invites as buddies
         for invite in self.muc_invites.values():
             _user, chat = invite
-            buddy = based.Buddy(name=chat, alias=chat,
-                                status="GROUP_CHAT_INVITE")
+            buddy = (chat, chat, "GROUP_CHAT_INVITE")
             buddies.append(buddy)
 
         # update buddy list
-        self.lock.acquire()
-        self.buddies = buddies
-        self.lock.release()
+        self.account.update_buddies(buddies)
 
     def _set_status(self, status):
         """
@@ -355,9 +313,7 @@ class NuqqlClient(ClientXMPP):
             if pres['show']:
                 status = pres['show']
 
-        self.lock.acquire()
-        self.messages.append(Format.STATUS.format(self.account.aid, status))
-        self.lock.release()
+        self.account.receive_msg(Message.status(self.account, status))
 
     def _chat_list(self):
         """
@@ -367,10 +323,8 @@ class NuqqlClient(ClientXMPP):
         for chat in self.plugin['xep_0045'].get_joined_rooms():
             chat_alias = chat   # TODO: use something else as alias?
             nick = self.plugin['xep_0045'].our_nicks[chat]
-            self.lock.acquire()
-            self.messages.append(Format.CHAT_LIST.format(
-                self.account.aid, chat, chat_alias, nick))
-            self.lock.release()
+            self.account.receive_msg(Message.chat_list(
+                self.account, chat, chat_alias, nick))
 
     def _chat_join(self, chat):
         """
@@ -424,10 +378,8 @@ class NuqqlClient(ClientXMPP):
             user_alias = user
             # TODO: try to retrieve user's presence as status?
             status = "join"
-            self.lock.acquire()
-            self.messages.append(Format.CHAT_USER.format(
-                self.account.aid, chat, user, user_alias, status))
-            self.lock.release()
+            self.account.receive_msg(Message.chat_user(
+                self.account, chat, user, user_alias, status))
 
     def _chat_invite(self, chat, user):
         """
@@ -435,59 +387,6 @@ class NuqqlClient(ClientXMPP):
         """
 
         self.plugin['xep_0045'].invite(chat, user)
-
-
-def update_buddies(account_id, _cmd, _params):
-    """
-    Read buddies from client connection
-    """
-
-    try:
-        xmpp = CONNECTIONS[account_id]
-    except KeyError:
-        # no active connection
-        return ""
-
-    # clear buddy list
-    xmpp.account.buddies = []
-
-    # parse buddy list and insert buddies into buddy list
-    xmpp.lock.acquire()
-    for buddy in xmpp.buddies:
-        xmpp.account.buddies.append(buddy)
-    xmpp.lock.release()
-
-    return ""
-
-
-def get_messages(account_id, _cmd, _params):
-    """
-    Read messages from client connection
-    """
-
-    try:
-        xmpp = CONNECTIONS[account_id]
-    except KeyError:
-        # no active connection
-        return []
-
-    # get and return messages
-    return "".join(xmpp.get_messages())
-
-
-def collect_messages(account_id, _cmd, _params):
-    """
-    Collect all messages from client connection
-    """
-
-    try:
-        xmpp = CONNECTIONS[account_id]
-    except KeyError:
-        # no active connection
-        return ""
-
-    # collect and return messages
-    return "".join(xmpp.collect())
 
 
 def enqueue(account_id, cmd, params):
@@ -605,6 +504,14 @@ def add_account(account_id, _cmd, params):
     Add a new account (from based) and run a new slixmpp client thread for it
     """
 
+    # only handle xmpp accounts
+    account = params[0]
+    if account.type != "xmpp":
+        return ""
+
+    # make sure other loggers do not also write to root logger
+    account.logger.propagate = False
+
     # event to signal thread is ready
     ready = Event()
 
@@ -613,7 +520,6 @@ def add_account(account_id, _cmd, params):
     running.set()
 
     # create and start thread
-    account = params[0]
     new_thread = Thread(target=run_client, args=(account, ready, running))
     new_thread.start()
 
@@ -657,7 +563,7 @@ def init_logging(config):
 
     # configure logging module to write to file
     log_format = "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"
-    loglevel = based.LOGLEVELS[config["loglevel"]]
+    loglevel = config["loglevel"]
     logging.basicConfig(filename=log_file, level=loglevel,
                         format=log_format, datefmt="%s")
     os.chmod(log_file, stat.S_IRWXU)
@@ -674,63 +580,64 @@ def stop_thread(account_id, _cmd, _params):
     running.clear()
 
 
+def _based_config(_account_id, _cmd, params):
+    """
+    Config event in based
+    """
+
+    config = params[0]
+    init_logging(config)
+
+
+def _based_interrupt(_account_id, _cmd, _params):
+    """
+    KeyboardInterrupt event in based
+    """
+
+    for _thread, running in THREADS.values():
+        print("Signalling account thread to stop.")
+        running.clear()
+
+
+def _based_quit(_account_id, _cmd, _params):
+    """
+    Based shut down event
+    """
+    print("Waiting for all threads to finish. This might take a while.")
+    for thread, _running in THREADS.values():
+        thread.join()
+
+
 def main():
     """
     Main function, initialize everything and start server
     """
 
-    # initialize configuration from command line and config file
-    config = based.init_config("slixmppd")
-
-    # initialize logging and main logger
-    init_logging(config)
-    based.init_main_logger()
-
-    # load accounts
-    based.load_accounts()
-
-    # initialize account loggers
-    based.init_account_loggers()
-    for acc in based.get_accounts().values():
-        # make sure other loggers do not also write to root logger
-        acc.logger.propagate = False
-
-    # start a client connection for every xmpp account in it's own thread
-    for acc in based.get_accounts().values():
-        if acc.type == "xmpp":
-            add_account(acc.aid, Callback.ADD_ACCOUNT, (acc, ))
-
     # register callbacks
-    based.register_callback(Callback.QUIT, stop_thread)
-    based.register_callback(Callback.ADD_ACCOUNT, add_account)
-    based.register_callback(Callback.DEL_ACCOUNT, del_account)
-    based.register_callback(Callback.UPDATE_BUDDIES, update_buddies)
-    based.register_callback(Callback.GET_MESSAGES, get_messages)
-    based.register_callback(Callback.SEND_MESSAGE, send_message)
-    based.register_callback(Callback.COLLECT_MESSAGES, collect_messages)
-    based.register_callback(Callback.SET_STATUS, enqueue)
-    based.register_callback(Callback.GET_STATUS, enqueue)
-    based.register_callback(Callback.CHAT_LIST, enqueue)
-    based.register_callback(Callback.CHAT_JOIN, enqueue)
-    based.register_callback(Callback.CHAT_PART, enqueue)
-    based.register_callback(Callback.CHAT_SEND, chat_send)
-    based.register_callback(Callback.CHAT_USERS, enqueue)
-    based.register_callback(Callback.CHAT_INVITE, enqueue)
+    callbacks = [
+        # based events
+        (Callback.BASED_CONFIG, _based_config),
+        (Callback.BASED_INTERRUPT, _based_interrupt),
+        (Callback.BASED_QUIT, _based_quit),
 
-    # run the server for the nuqql connection
-    try:
-        based.run_server(config)
-    except KeyboardInterrupt:
-        # try to terminate all threads
-        for _thread, running in THREADS.values():
-            print("Signalling account thread to stop.")
-            running.clear()
-    finally:
-        # wait for threads to finish
-        print("Waiting for all threads to finish. This might take a while.")
-        for thread, _running in THREADS.values():
-            thread.join()
-        sys.exit()
+        # nuqql messages
+        (Callback.QUIT, stop_thread),
+        (Callback.ADD_ACCOUNT, add_account),
+        (Callback.DEL_ACCOUNT, del_account),
+        (Callback.SEND_MESSAGE, send_message),
+        (Callback.SET_STATUS, enqueue),
+        (Callback.GET_STATUS, enqueue),
+        (Callback.CHAT_LIST, enqueue),
+        (Callback.CHAT_JOIN, enqueue),
+        (Callback.CHAT_PART, enqueue),
+        (Callback.CHAT_SEND, chat_send),
+        (Callback.CHAT_USERS, enqueue),
+        (Callback.CHAT_INVITE, enqueue),
+    ]
+
+    # start based
+    based = Based("slixmppd", callbacks)
+    based.start()
 
 
 if __name__ == '__main__':
