@@ -557,13 +557,13 @@ def init_logging(config):
 
     # determine logging path from command line parameters and
     # make sure it exists
-    logs_dir = config["dir"] / "logs"
+    logs_dir = config.get_dir() / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_file = logs_dir / "slixmpp.log"
 
     # configure logging module to write to file
     log_format = "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"
-    loglevel = config["loglevel"]
+    loglevel = config.get_loglevel()
     logging.basicConfig(filename=log_file, level=loglevel,
                         format=log_format, datefmt="%s")
     os.chmod(log_file, stat.S_IRWXU)
