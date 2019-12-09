@@ -29,9 +29,10 @@ CONNECTIONS = {}
 THREADS = {}
 
 
-class NuqqlClient(ClientXMPP):
+class BackendClient(ClientXMPP):
     """
-    Nuqql Client Class, derived from Slixmpp Client
+    Backend Client Class, derived from Slixmpp Client,
+    for a connection to the IM network
     """
 
     def __init__(self, account, lock):
@@ -468,7 +469,7 @@ def run_client(account, ready, running):
     lock = Lock()
 
     # start client connection
-    xmpp = NuqqlClient(account, lock)
+    xmpp = BackendClient(account, lock)
     xmpp.register_plugin('xep_0071')    # XHTML-IM
     xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
     xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
