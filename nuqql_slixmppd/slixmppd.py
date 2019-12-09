@@ -24,10 +24,6 @@ from nuqql_based.based import Based
 from nuqql_based.callback import Callback
 from nuqql_based.message import Message
 
-# dictionary for all xmpp client connections
-CONNECTIONS = {}
-THREADS = {}
-
 
 class BackendClient(ClientXMPP):
     """
@@ -390,223 +386,262 @@ class BackendClient(ClientXMPP):
         self.plugin['xep_0045'].invite(chat, user)
 
 
-def enqueue(account_id, cmd, params):
+class BackendServer:
     """
-    Helper for adding commands to the command queue of the account/client
+    Backend server class, manages the BackendClients for connections to
+    IM networks
     """
 
-    try:
-        xmpp = CONNECTIONS[account_id]
-    except KeyError:
-        # no active connection
+    def __init__(self):
+        self.connections = {}
+        self.threads = {}
+
+        # register callbacks
+        callbacks = [
+            # based events
+            (Callback.BASED_CONFIG, self._based_config),
+            (Callback.BASED_INTERRUPT, self._based_interrupt),
+            (Callback.BASED_QUIT, self._based_quit),
+
+            # nuqql messages
+            (Callback.QUIT, self.stop_thread),
+            (Callback.ADD_ACCOUNT, self.add_account),
+            (Callback.DEL_ACCOUNT, self.del_account),
+            (Callback.SEND_MESSAGE, self.send_message),
+            (Callback.SET_STATUS, self.enqueue),
+            (Callback.GET_STATUS, self.enqueue),
+            (Callback.CHAT_LIST, self.enqueue),
+            (Callback.CHAT_JOIN, self.enqueue),
+            (Callback.CHAT_PART, self.enqueue),
+            (Callback.CHAT_SEND, self.chat_send),
+            (Callback.CHAT_USERS, self.enqueue),
+            (Callback.CHAT_INVITE, self.enqueue),
+        ]
+
+        # start based
+        self.based = Based("slixmppd", callbacks)
+
+    def start(self):
+        """
+        Start server
+        """
+
+        self.based.start()
+
+    def enqueue(self, account_id, cmd, params):
+        """
+        Helper for adding commands to the command queue of the account/client
+        """
+
+        try:
+            xmpp = self.connections[account_id]
+        except KeyError:
+            # no active connection
+            return ""
+
+        xmpp.enqueue_command(cmd, params)
+
         return ""
 
-    xmpp.enqueue_command(cmd, params)
+    def send_message(self, account_id, cmd, params):
+        """
+        send a message to a jabber id on an account
+        """
 
-    return ""
+        # parse parameters
+        if len(params) > 2:
+            dest, msg, msg_type = params
+        else:
+            dest, msg = params
+            msg_type = "chat"
 
+        # nuqql sends a html-escaped message; construct "plain-text" version
+        # and xhtml version using nuqql's message and use them as message body
+        # later
+        html_msg = \
+            '<body xmlns="http://www.w3.org/1999/xhtml">{}</body>'.format(msg)
+        msg = html.unescape(msg)
+        msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
-def send_message(account_id, cmd, params):
-    """
-    send a message to a jabber id on an account
-    """
+        # send message
+        self.enqueue(account_id, cmd, (dest, msg, html_msg, msg_type))
 
-    # parse parameters
-    if len(params) > 2:
-        dest, msg, msg_type = params
-    else:
-        dest, msg = params
-        msg_type = "chat"
-
-    # nuqql sends a html-escaped message; construct "plain-text" version and
-    # xhtml version using nuqql's message and use them as message body later
-    html_msg = \
-        '<body xmlns="http://www.w3.org/1999/xhtml">{}</body>'.format(msg)
-    msg = html.unescape(msg)
-    msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
-
-    # send message
-    enqueue(account_id, cmd, (dest, msg, html_msg, msg_type))
-
-    return ""
-
-
-def chat_send(account_id, _cmd, params):
-    """
-    Send message to chat on account
-    """
-
-    chat, msg = params
-    return send_message(account_id, Callback.SEND_MESSAGE,
-                        (chat, msg, "groupchat"))
-
-
-def _reconnect(xmpp, last_connect):
-    """
-    Try to reconnect to the server if last connect is older than 10 seconds.
-    """
-
-    cur_time = time.time()
-    if cur_time - last_connect < 10:
-        return last_connect
-
-    print("Reconnecting:", xmpp.account.user)
-    xmpp.connect()
-    return cur_time
-
-
-def run_client(account, ready, running):
-    """
-    Run client connection in a new thread,
-    as long as running Event is set to true.
-    """
-
-    # get event loop for thread
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    # create a new lock for the thread
-    lock = Lock()
-
-    # start client connection
-    xmpp = BackendClient(account, lock)
-    xmpp.register_plugin('xep_0071')    # XHTML-IM
-    xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
-    xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
-    xmpp.register_plugin('xep_0030')    # Service Discovery
-    xmpp.register_plugin('xep_0045')    # Multi-User Chat
-    xmpp.register_plugin('xep_0199')    # XMPP Ping
-    xmpp.connect()
-    last_connect = time.time()
-
-    # save client connection in active connections dictionary
-    CONNECTIONS[account.aid] = xmpp
-
-    # thread is ready to enter main loop, inform caller
-    ready.set()
-
-    # enter main loop, and keep running until "running" is set to false
-    # by the KeyboardInterrupt
-    while running.is_set():
-        # process xmpp client for 0.1 seconds, then send pending outgoing
-        # messages and update the (safe copy of the) buddy list
-        xmpp.process(timeout=0.1)
-        # if account is offline, skip other steps to avoid issues with sending
-        # commands/messages over the (uninitialized) xmpp connection
-        if xmpp.account.status == "offline":
-            last_connect = _reconnect(xmpp, last_connect)
-            continue
-        xmpp.handle_queue()
-        xmpp.update_buddies()
-
-
-def add_account(account_id, _cmd, params):
-    """
-    Add a new account (from based) and run a new slixmpp client thread for it
-    """
-
-    # only handle xmpp accounts
-    account = params[0]
-    if account.type != "xmpp":
         return ""
 
-    # make sure other loggers do not also write to root logger
-    account.logger.propagate = False
+    def chat_send(self, account_id, _cmd, params):
+        """
+        Send message to chat on account
+        """
 
-    # event to signal thread is ready
-    ready = Event()
+        chat, msg = params
+        return self.send_message(account_id, Callback.SEND_MESSAGE,
+                                 (chat, msg, "groupchat"))
 
-    # event to signal if thread should stop
-    running = Event()
-    running.set()
+    @staticmethod
+    def _reconnect(xmpp, last_connect):
+        """
+        Try to reconnect to the server if last connect is older than 10
+        seconds.
+        """
 
-    # create and start thread
-    new_thread = Thread(target=run_client, args=(account, ready, running))
-    new_thread.start()
+        cur_time = time.time()
+        if cur_time - last_connect < 10:
+            return last_connect
 
-    # save thread in active threads dictionary
-    THREADS[account_id] = (new_thread, running)
+        print("Reconnecting:", xmpp.account.user)
+        xmpp.connect()
+        return cur_time
 
-    # wait until thread initialized everything
-    ready.wait()
+    def run_client(self, account, ready, running):
+        """
+        Run client connection in a new thread,
+        as long as running Event is set to true.
+        """
 
-    return ""
+        # get event loop for thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
+        # create a new lock for the thread
+        lock = Lock()
 
-def del_account(account_id, _cmd, _params):
-    """
-    Delete an existing account (in based) and
-    stop slixmpp client thread for it
-    """
+        # start client connection
+        xmpp = BackendClient(account, lock)
+        xmpp.register_plugin('xep_0071')    # XHTML-IM
+        xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
+        xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
+        xmpp.register_plugin('xep_0030')    # Service Discovery
+        xmpp.register_plugin('xep_0045')    # Multi-User Chat
+        xmpp.register_plugin('xep_0199')    # XMPP Ping
+        xmpp.connect()
+        last_connect = time.time()
 
-    # stop thread
-    thread, running = THREADS[account_id]
-    running.clear()
-    thread.join()
+        # save client connection in active connections dictionary
+        self.connections[account.aid] = xmpp
 
-    # cleanup
-    del CONNECTIONS[account_id]
-    del THREADS[account_id]
+        # thread is ready to enter main loop, inform caller
+        ready.set()
 
-    return ""
+        # enter main loop, and keep running until "running" is set to false
+        # by the KeyboardInterrupt
+        while running.is_set():
+            # process xmpp client for 0.1 seconds, then send pending outgoing
+            # messages and update the (safe copy of the) buddy list
+            xmpp.process(timeout=0.1)
+            # if account is offline, skip other steps to avoid issues with
+            # sending commands/messages over the (uninitialized) xmpp
+            # connection
+            if xmpp.account.status == "offline":
+                last_connect = self._reconnect(xmpp, last_connect)
+                continue
+            xmpp.handle_queue()
+            xmpp.update_buddies()
 
+    def add_account(self, account_id, _cmd, params):
+        """
+        Add a new account (from based) and run a new slixmpp client thread for
+        it
+        """
 
-def init_logging(config):
-    """
-    Configure logging module, so slixmpp logs are written to a file
-    """
+        # only handle xmpp accounts
+        account = params[0]
+        if account.type != "xmpp":
+            return ""
 
-    # determine logging path from command line parameters and
-    # make sure it exists
-    logs_dir = config.get_dir() / "logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    log_file = logs_dir / "slixmpp.log"
+        # make sure other loggers do not also write to root logger
+        account.logger.propagate = False
 
-    # configure logging module to write to file
-    log_format = "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"
-    loglevel = config.get_loglevel()
-    logging.basicConfig(filename=log_file, level=loglevel,
-                        format=log_format, datefmt="%s")
-    os.chmod(log_file, stat.S_IRWXU)
+        # event to signal thread is ready
+        ready = Event()
 
+        # event to signal if thread should stop
+        running = Event()
+        running.set()
 
-def stop_thread(account_id, _cmd, _params):
-    """
-    Quit backend/stop client thread
-    """
+        # create and start thread
+        new_thread = Thread(target=self.run_client, args=(account, ready,
+                                                          running))
+        new_thread.start()
 
-    # stop thread
-    print("Signalling account thread to stop.")
-    _thread, running = THREADS[account_id]
-    running.clear()
+        # save thread in active threads dictionary
+        self.threads[account_id] = (new_thread, running)
 
+        # wait until thread initialized everything
+        ready.wait()
 
-def _based_config(_account_id, _cmd, params):
-    """
-    Config event in based
-    """
+        return ""
 
-    config = params[0]
-    init_logging(config)
+    def del_account(self, account_id, _cmd, _params):
+        """
+        Delete an existing account (in based) and
+        stop slixmpp client thread for it
+        """
 
+        # stop thread
+        thread, running = self.threads[account_id]
+        running.clear()
+        thread.join()
 
-def _based_interrupt(_account_id, _cmd, _params):
-    """
-    KeyboardInterrupt event in based
-    """
+        # cleanup
+        del self.connections[account_id]
+        del self.threads[account_id]
 
-    for _thread, running in THREADS.values():
+        return ""
+
+    @staticmethod
+    def init_logging(config):
+        """
+        Configure logging module, so slixmpp logs are written to a file
+        """
+
+        # determine logging path from command line parameters and
+        # make sure it exists
+        logs_dir = config.get_dir() / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        log_file = logs_dir / "slixmpp.log"
+
+        # configure logging module to write to file
+        log_format = "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"
+        loglevel = config.get_loglevel()
+        logging.basicConfig(filename=log_file, level=loglevel,
+                            format=log_format, datefmt="%s")
+        os.chmod(log_file, stat.S_IRWXU)
+
+    def stop_thread(self, account_id, _cmd, _params):
+        """
+        Quit backend/stop client thread
+        """
+
+        # stop thread
         print("Signalling account thread to stop.")
+        _thread, running = self.threads[account_id]
         running.clear()
 
+    def _based_config(self, _account_id, _cmd, params):
+        """
+        Config event in based
+        """
 
-def _based_quit(_account_id, _cmd, _params):
-    """
-    Based shut down event
-    """
-    print("Waiting for all threads to finish. This might take a while.")
-    for thread, _running in THREADS.values():
-        thread.join()
+        config = params[0]
+        self.init_logging(config)
+
+    def _based_interrupt(self, _account_id, _cmd, _params):
+        """
+        KeyboardInterrupt event in based
+        """
+
+        for _thread, running in self.threads.values():
+            print("Signalling account thread to stop.")
+            running.clear()
+
+    def _based_quit(self, _account_id, _cmd, _params):
+        """
+        Based shut down event
+        """
+
+        print("Waiting for all threads to finish. This might take a while.")
+        for thread, _running in self.threads.values():
+            thread.join()
 
 
 def main():
@@ -614,31 +649,8 @@ def main():
     Main function, initialize everything and start server
     """
 
-    # register callbacks
-    callbacks = [
-        # based events
-        (Callback.BASED_CONFIG, _based_config),
-        (Callback.BASED_INTERRUPT, _based_interrupt),
-        (Callback.BASED_QUIT, _based_quit),
-
-        # nuqql messages
-        (Callback.QUIT, stop_thread),
-        (Callback.ADD_ACCOUNT, add_account),
-        (Callback.DEL_ACCOUNT, del_account),
-        (Callback.SEND_MESSAGE, send_message),
-        (Callback.SET_STATUS, enqueue),
-        (Callback.GET_STATUS, enqueue),
-        (Callback.CHAT_LIST, enqueue),
-        (Callback.CHAT_JOIN, enqueue),
-        (Callback.CHAT_PART, enqueue),
-        (Callback.CHAT_SEND, chat_send),
-        (Callback.CHAT_USERS, enqueue),
-        (Callback.CHAT_INVITE, enqueue),
-    ]
-
-    # start based
-    based = Based("slixmppd", callbacks)
-    based.start()
+    server = BackendServer()
+    server.start()
 
 
 if __name__ == '__main__':
