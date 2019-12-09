@@ -13,7 +13,7 @@ import logging
 import stat
 import os
 
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 from threading import Thread, Lock, Event
 
 # slixmpp
@@ -36,7 +36,7 @@ class BackendClient(ClientXMPP):
     for a connection to the IM network
     """
 
-    def __init__(self, account, lock):
+    def __init__(self, account: "Account", lock: Lock) -> None:
         # jid: account.user
         # password: account.password
         ClientXMPP.__init__(self, account.user, account.password)
@@ -50,15 +50,15 @@ class BackendClient(ClientXMPP):
         self.add_event_handler("groupchat_message", self.muc_message)
         self.add_event_handler("groupchat_invite", self._muc_invite)
 
-        self._status = None     # status configured by user
+        self._status: Optional[str] = None     # status configured by user
         self.lock = lock
-        self.queue = []
+        self.queue: List[Tuple[Callback, Tuple]] = []
 
-        self.muc_invites = {}
-        self.muc_cache = []
+        self.muc_invites: Dict[str, Tuple[str, str]] = {}
+        self.muc_cache: List[str] = []
         self.muc_filter_own = True
 
-    def _session_start(self, _event):
+    def _session_start(self, _event) -> None:
         """
         Session start handler
         """
@@ -75,7 +75,7 @@ class BackendClient(ClientXMPP):
             # set a previously configured status
             self._set_status(self._status)
 
-    def _disconnected(self, _event):
+    def _disconnected(self, _event) -> None:
         """
         Got disconnected, set status to offline
         """
@@ -83,7 +83,7 @@ class BackendClient(ClientXMPP):
         self.account.status = "offline"     # flag account as "offline"
         self.account.flush_buddies()        # flush buddy list
 
-    def message(self, msg):
+    def message(self, msg) -> None:
         """
         Message handler
         """
@@ -109,7 +109,7 @@ class BackendClient(ClientXMPP):
                 self.account, tstamp, msg["from"], msg["to"], msg["body"])
             self.account.receive_msg(formatted_msg)
 
-    def muc_message(self, msg):
+    def muc_message(self, msg) -> None:
         """
         Groupchat message handler.
         """
@@ -137,7 +137,7 @@ class BackendClient(ClientXMPP):
                 self.account, tstamp, msg["mucnick"], chat, msg["body"])
             self.account.receive_msg(formatted_msg)
 
-    def _muc_presence(self, presence, status):
+    def _muc_presence(self, presence, status) -> None:
         """
         Group chat presence handler
         """
@@ -151,11 +151,11 @@ class BackendClient(ClientXMPP):
         if presence['muc']['nick'] != nick:
             user = presence["muc"]["nick"]
             user_alias = user   # try to get a real alias?
-            msg = Message.chat_user(self.account.aid, chat, user, user_alias,
+            msg = Message.chat_user(self.account, chat, user, user_alias,
                                     status)
             self.account.receive_msg(msg)
 
-    def _muc_invite(self, inv):
+    def _muc_invite(self, inv) -> None:
         """
         Group chat invite handler
         """
@@ -164,21 +164,21 @@ class BackendClient(ClientXMPP):
         chat = inv["from"]
         self.muc_invites[chat] = (user, chat)
 
-    def muc_online(self, presence):
+    def muc_online(self, presence) -> None:
         """
         Group chat online presence handler
         """
 
         self._muc_presence(presence, "online")
 
-    def muc_offline(self, presence):
+    def muc_offline(self, presence) -> None:
         """
         Group chat offline presence handler
         """
 
         self._muc_presence(presence, "offline")
 
-    def _send_message(self, message_tuple):
+    def _send_message(self, message_tuple: Tuple) -> None:
         """
         Send a queued message
         """
@@ -193,7 +193,7 @@ class BackendClient(ClientXMPP):
                            unicodedata.category(ch)[0] != "C")
         self.send_message(mto=jid, mbody=msg, mhtml=html_msg, mtype=mtype)
 
-    def enqueue_command(self, cmd, params):
+    def enqueue_command(self, cmd: Callback, params: Tuple) -> None:
         """
         Enqueue a command to the queue consisting of:
             command and its parameters
@@ -204,7 +204,7 @@ class BackendClient(ClientXMPP):
         self.queue.append((cmd, params))
         self.lock.release()
 
-    def handle_queue(self):
+    def handle_queue(self) -> None:
         """
         Send all queued messages
         """
@@ -234,7 +234,7 @@ class BackendClient(ClientXMPP):
             if cmd == Callback.CHAT_INVITE:
                 self._chat_invite(params[0], params[1])
 
-    def update_buddies(self):
+    def update_buddies(self) -> None:
         """
         Create a "safe" copy of roster
         """
@@ -284,7 +284,7 @@ class BackendClient(ClientXMPP):
         # update buddy list
         self.account.update_buddies(buddies)
 
-    def _set_status(self, status):
+    def _set_status(self, status: str) -> None:
         """
         Set the current status of the account
         """
@@ -293,7 +293,7 @@ class BackendClient(ClientXMPP):
         self._status = status
         self.send_presence(pshow=status)
 
-    def _get_status(self):
+    def _get_status(self) -> None:
         """
         Get the current status of the account
         """
@@ -317,7 +317,7 @@ class BackendClient(ClientXMPP):
 
         self.account.receive_msg(Message.status(self.account, status))
 
-    def _chat_list(self):
+    def _chat_list(self) -> None:
         """
         List active chats of account
         """
@@ -328,7 +328,7 @@ class BackendClient(ClientXMPP):
             self.account.receive_msg(Message.chat_list(
                 self.account, chat, chat_alias, nick))
 
-    def _chat_join(self, chat):
+    def _chat_join(self, chat: str) -> None:
         """
         Join chat on account
         """
@@ -342,9 +342,8 @@ class BackendClient(ClientXMPP):
         self.add_event_handler("muc::%s::got_online" % chat, self.muc_online)
         self.add_event_handler("muc::%s::got_offline" % chat, self.muc_offline)
         self.muc_cache.append(chat)
-        return ""
 
-    def _chat_part(self, chat):
+    def _chat_part(self, chat: str) -> None:
         """
         Leave chat on account
         """
@@ -364,7 +363,7 @@ class BackendClient(ClientXMPP):
             # simply ignore the pending invite and remove it
             del self.muc_invites[chat]
 
-    def _chat_users(self, chat):
+    def _chat_users(self, chat: str) -> None:
         """
         Get list of users in chat on account
         """
@@ -383,7 +382,7 @@ class BackendClient(ClientXMPP):
             self.account.receive_msg(Message.chat_user(
                 self.account, chat, user, user_alias, status))
 
-    def _chat_invite(self, chat, user):
+    def _chat_invite(self, chat: str, user: str) -> None:
         """
         Invite user to chat on account
         """
