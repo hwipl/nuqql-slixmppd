@@ -29,6 +29,9 @@ if TYPE_CHECKING:   # imports for typing
     from nuqql_based.account import Account
     from nuqql_based.config import Config
 
+# slixmppd version
+VERSION = "0.4"
+
 
 class BackendClient(ClientXMPP):
     """
@@ -423,7 +426,7 @@ class BackendServer:
         ]
 
         # start based
-        self.based = Based("slixmppd", callbacks)
+        self.based = Based("slixmppd", VERSION, callbacks)
 
     def start(self) -> None:
         """
