@@ -27,7 +27,7 @@ setup(
     url="https://github.com/hwipl/nuqql-slixmppd",
     packages=["nuqql_slixmppd"],
     entry_points={
-        "console_scripts": ["nuqql-slixmppd = nuqql_slixmppd.slixmppd:main"]
+        "console_scripts": ["nuqql-slixmppd = nuqql_slixmppd.main:main"]
     },
     classifiers=CLASSIFIERS,
     python_requires='>=3.6',
