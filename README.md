@@ -5,26 +5,34 @@ nuqql-slixmppd is a network daemon that implements the nuqql interface and uses
 networks. It can be used as a backend for
 [nuqql](https://github.com/hwipl/nuqql) or as a standalone chat client daemon.
 
-nuqql-slixmppd is a fork of [nuqql-based](https://github.com/hwipl/nuqql-based)
-that adds slixmpp for XMPP support. Thus,
-[slixmpp](https://lab.louiz.org/poezio/slixmpp) is a requirement to run
-nuqql-slixmppd. Another optional dependency is
-[daemon](https://pypi.org/project/python-daemon/), that is needed to run
-slixmppd in daemon mode.
+nuqql-slixmppd's dependencies are:
+* [nuqql-based](https://github.com/hwipl/nuqql-based)
+* [slixmpp](https://lab.louiz.org/poezio/slixmpp)
+* [daemon](https://pypi.org/project/python-daemon/) (optional)
 
 
 ## Quick Start
 
-Make sure you have installed nuqql-slixmppd's dependencies:
-* [slixmpp](https://lab.louiz.org/poezio/slixmpp): for XMPP (jabber) support
-* [daemon](https://pypi.org/project/python-daemon/) (optional): for daemonize
-  support
+You can install nuqql-slixmppd and its dependencies, for example, with pip for
+your user only with the following command:
 
-You can run nuqql-slixmppd by executing *slixmppd.py*, e.g., with
-`./slixmppd.py`.
+```console
+$ pip install --user nuqql-slixmppd
+```
+
+After the installation, you can run nuqql-slixmppd by running the
+`nuqql-slixmppd` command:
+
+```console
+$ nuqql-slixmppd
+```
 
 By default, it listens on TCP port 32000 on your local host. So, you can
-connect with telnet to it, e.g., with `telnet localhost 32000`.
+connect with, e.g., telnet to it with the following command:
+
+```console
+$ telnet localhost 32000
+```
 
 In the telnet session you can:
 * add XMPP accounts with: `account add xmpp <username> <password>`.
@@ -35,17 +43,18 @@ In the telnet session you can:
 
 ## Usage
 
-See `slixmppd.py --help` for a list of command line arguments:
+See `nuqql-slixmppd --help` for a list of command line arguments:
 
 ```
-usage: slixmppd.py [-h] [--af {inet,unix}] [--address ADDRESS] [--port PORT]
-                   [--sockfile SOCKFILE] [--dir DIR] [-d]
-                   [--loglevel {debug,info,warn,error}]
+usage: nuqql-slixmppd [-h] [--version] [--af {inet,unix}] [--address ADDRESS]
+[--port PORT] [--sockfile SOCKFILE] [--dir DIR] [-d] [--loglevel
+{debug,info,warn,error}] [--disable-history]
 
 Run nuqql backend.
 
 optional arguments:
   -h, --help            show this help message and exit
+  --version             show program's version number and exit
   --af {inet,unix}      socket address family: "inet" for AF_INET, "unix" for
                         AF_UNIX
   --address ADDRESS     AF_INET listen address
@@ -55,11 +64,17 @@ optional arguments:
   -d, --daemonize       daemonize process
   --loglevel {debug,info,warn,error}
                         Logging level
+  --disable-history     disable message history
 ```
 
 
 ## Changes
 
+* devel:
+  * Use nuqql-based as dependency and adapt to nuqql-based changes
+  * Add setup.py for installation and package distribution
+  * Add python type annotations
+  * Restructure code
 * v0.4:
   * Add new commands:
     * `bye`: disconnect from the backend.
