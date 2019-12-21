@@ -70,7 +70,7 @@ optional arguments:
 
 ## Changes
 
-* devel:
+* v0.5:
   * Use nuqql-based as dependency and adapt to nuqql-based changes
   * Add setup.py for installation and package distribution
   * Add python type annotations
