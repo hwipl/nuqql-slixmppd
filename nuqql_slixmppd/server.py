@@ -10,7 +10,7 @@ import logging
 import stat
 import os
 
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 from threading import Thread, Lock, Event
 
 # slixmppd
@@ -21,7 +21,7 @@ from nuqql_based.based import Based
 from nuqql_based.callback import Callback
 
 if TYPE_CHECKING:   # imports for typing
-    from nuqql_based.account import Account
+    from nuqql_based.account import Account     # noqa
     from nuqql_based.config import Config
 
 # slixmppd version
@@ -70,13 +70,15 @@ class BackendServer:
         # start based
         self.based.start()
 
-    def enqueue(self, account_id: int, cmd: Callback, params: Tuple) -> str:
+    def enqueue(self, account: Optional["Account"], cmd: Callback,
+                params: Tuple) -> str:
         """
         Helper for adding commands to the command queue of the account/client
         """
 
+        assert account
         try:
-            xmpp = self.connections[account_id]
+            xmpp = self.connections[account.aid]
         except KeyError:
             # no active connection
             return ""
@@ -85,7 +87,7 @@ class BackendServer:
 
         return ""
 
-    def send_message(self, account_id: int, cmd: Callback,
+    def send_message(self, account: Optional["Account"], cmd: Callback,
                      params: Tuple) -> str:
         """
         send a message to a jabber id on an account
@@ -107,17 +109,18 @@ class BackendServer:
         msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
         # send message
-        self.enqueue(account_id, cmd, (dest, msg, html_msg, msg_type))
+        self.enqueue(account, cmd, (dest, msg, html_msg, msg_type))
 
         return ""
 
-    def chat_send(self, account_id: int, _cmd: Callback, params: Tuple) -> str:
+    def chat_send(self, account: Optional["Account"], _cmd: Callback,
+                  params: Tuple) -> str:
         """
         Send message to chat on account
         """
 
         chat, msg = params
-        return self.send_message(account_id, Callback.SEND_MESSAGE,
+        return self.send_message(account, Callback.SEND_MESSAGE,
                                  (chat, msg, "groupchat"))
 
     @staticmethod
@@ -135,7 +138,7 @@ class BackendServer:
         xmpp.connect()
         return cur_time
 
-    def run_client(self, account: "Account", ready: Event,
+    def run_client(self, account: Optional["Account"], ready: Event,
                    running: Event) -> None:
         """
         Run client connection in a new thread,
@@ -143,6 +146,7 @@ class BackendServer:
         """
 
         # get event loop for thread
+        assert account
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -181,15 +185,15 @@ class BackendServer:
             xmpp.handle_queue()
             xmpp.update_buddies()
 
-    def add_account(self, account_id: int, _cmd: Callback,
-                    params: Tuple) -> str:
+    def add_account(self, account: Optional["Account"], _cmd: Callback,
+                    _params: Tuple) -> str:
         """
         Add a new account (from based) and run a new slixmpp client thread for
         it
         """
 
         # only handle xmpp accounts
-        account = params[0]
+        assert account
         if account.type != "xmpp":
             return ""
 
@@ -209,14 +213,14 @@ class BackendServer:
         new_thread.start()
 
         # save thread in active threads dictionary
-        self.threads[account_id] = (new_thread, running)
+        self.threads[account.aid] = (new_thread, running)
 
         # wait until thread initialized everything
         ready.wait()
 
         return ""
 
-    def del_account(self, account_id: int, _cmd: Callback,
+    def del_account(self, account: Optional["Account"], _cmd: Callback,
                     _params: Tuple) -> str:
         """
         Delete an existing account (in based) and
@@ -224,13 +228,14 @@ class BackendServer:
         """
 
         # stop thread
-        thread, running = self.threads[account_id]
+        assert account
+        thread, running = self.threads[account.aid]
         running.clear()
         thread.join()
 
         # cleanup
-        del self.connections[account_id]
-        del self.threads[account_id]
+        del self.connections[account.aid]
+        del self.threads[account.aid]
 
         return ""
 
@@ -253,19 +258,20 @@ class BackendServer:
                             format=log_format, datefmt="%s")
         os.chmod(log_file, stat.S_IRWXU)
 
-    def stop_thread(self, account_id: int, _cmd: Callback,
+    def stop_thread(self, account: Optional["Account"], _cmd: Callback,
                     _params: Tuple) -> str:
         """
         Quit backend/stop client thread
         """
 
         # stop thread
+        assert account
         print("Signalling account thread to stop.")
-        _thread, running = self.threads[account_id]
+        _thread, running = self.threads[account.aid]
         running.clear()
         return ""
 
-    def _based_config(self, _account_id: int, _cmd: Callback,
+    def _based_config(self, _account: Optional["Account"], _cmd: Callback,
                       params: Tuple) -> str:
         """
         Config event in based
@@ -275,7 +281,7 @@ class BackendServer:
         self.init_logging(config)
         return ""
 
-    def _based_interrupt(self, _account_id: int, _cmd: Callback,
+    def _based_interrupt(self, _account: Optional["Account"], _cmd: Callback,
                          _params: Tuple) -> str:
         """
         KeyboardInterrupt event in based
@@ -286,7 +292,7 @@ class BackendServer:
             running.clear()
         return ""
 
-    def _based_quit(self, _account_id: int, _cmd: Callback,
+    def _based_quit(self, _account: Optional["Account"], _cmd: Callback,
                     _params: Tuple) -> str:
         """
         Based shut down event
