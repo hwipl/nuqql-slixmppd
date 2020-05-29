@@ -197,9 +197,6 @@ class BackendServer:
         if account.type != "xmpp":
             return ""
 
-        # make sure other loggers do not also write to root logger
-        account.logger.propagate = False
-
         # event to signal thread is ready
         ready = Event()
 
