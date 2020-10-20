@@ -70,6 +70,8 @@ optional arguments:
 
 ## Changes
 
+* devel:
+  * Update nuqql-based to v0.2.0
 * v0.5:
   * Use nuqql-based as dependency and adapt to nuqql-based changes
   * Add setup.py for installation and package distribution
