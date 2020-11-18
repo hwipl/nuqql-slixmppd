@@ -13,14 +13,15 @@ import os
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 from threading import Thread, Lock, Event
 
-# slixmppd
-from nuqql_slixmppd.client import BackendClient
-
 # nuqql-based
 from nuqql_based.based import Based
 from nuqql_based.callback import Callback
 
+# slixmppd
+from nuqql_slixmppd.client import BackendClient
+
 if TYPE_CHECKING:   # imports for typing
+    # pylint: disable=ungrouped-imports
     from nuqql_based.account import Account     # noqa
     from nuqql_based.based import CallbackList
     from nuqql_based.config import Config
