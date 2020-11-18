@@ -11,7 +11,6 @@ import stat
 import os
 
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
-from threading import Thread, Lock, Event
 
 # nuqql-based
 from nuqql_based.based import Based
@@ -38,7 +37,6 @@ class BackendServer:
 
     def __init__(self) -> None:
         self.connections: Dict[int, BackendClient] = {}
-        self.threads: Dict[int, Tuple[Thread, Event]] = {}
         self.based = Based("slixmppd", VERSION)
 
     async def start(self) -> None:
@@ -85,7 +83,7 @@ class BackendServer:
             # no active connection
             return ""
 
-        xmpp.enqueue_command(cmd, params)
+        await xmpp.enqueue_command(cmd, params)
 
         return ""
 
@@ -140,22 +138,17 @@ class BackendServer:
         xmpp.connect()
         return cur_time
 
-    def run_client(self, account: Optional["Account"], ready: Event,
-                   running: Event) -> None:
+    async def run_client(self, account: Optional["Account"],
+                         ready: asyncio.Event, running: asyncio.Event) -> None:
         """
-        Run client connection in a new thread,
-        as long as running Event is set to true.
+        Run client connection as long as running Event is set to true.
         """
-
-        # get event loop for thread
-        assert account
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
 
         # create a new lock for the thread
-        lock = Lock()
+        lock = asyncio.Lock()
 
         # start client connection
+        assert account
         xmpp = BackendClient(account, lock)
         xmpp.register_plugin('xep_0071')    # XHTML-IM
         xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
@@ -175,16 +168,16 @@ class BackendServer:
         # enter main loop, and keep running until "running" is set to false
         # by the KeyboardInterrupt
         while running.is_set():
-            # process xmpp client for 0.1 seconds, then send pending outgoing
+            # process other things for 0.1 seconds, then send pending outgoing
             # messages and update the (safe copy of the) buddy list
-            xmpp.process(timeout=0.1)
+            await asyncio.sleep(0.1)
             # if account is offline, skip other steps to avoid issues with
             # sending commands/messages over the (uninitialized) xmpp
             # connection
             if xmpp.account.status == "offline":
                 last_connect = self._reconnect(xmpp, last_connect)
                 continue
-            xmpp.handle_queue()
+            await xmpp.handle_queue()
             xmpp.update_buddies()
 
     async def add_account(self, account: Optional["Account"], _cmd: Callback,
@@ -200,22 +193,17 @@ class BackendServer:
             return ""
 
         # event to signal thread is ready
-        ready = Event()
+        ready = asyncio.Event()
 
         # event to signal if thread should stop
-        running = Event()
+        running = asyncio.Event()
         running.set()
 
         # create and start thread
-        new_thread = Thread(target=self.run_client, args=(account, ready,
-                                                          running))
-        new_thread.start()
-
-        # save thread in active threads dictionary
-        self.threads[account.aid] = (new_thread, running)
+        asyncio.create_task(self.run_client(account, ready, running))
 
         # wait until thread initialized everything
-        ready.wait()
+        await ready.wait()
 
         return ""
 
@@ -228,13 +216,10 @@ class BackendServer:
 
         # stop thread
         assert account
-        thread, running = self.threads[account.aid]
-        running.clear()
-        thread.join()
+        # TODO: stop client?
 
         # cleanup
         del self.connections[account.aid]
-        del self.threads[account.aid]
 
         return ""
 
@@ -257,17 +242,12 @@ class BackendServer:
                             format=log_format, datefmt="%s")
         os.chmod(log_file, stat.S_IRWXU)
 
-    async def stop_thread(self, account: Optional["Account"], _cmd: Callback,
+    async def stop_thread(self, _account: Optional["Account"], _cmd: Callback,
                           _params: Tuple) -> str:
         """
         Quit backend/stop client thread
         """
 
-        # stop thread
-        assert account
-        print("Signalling account thread to stop.")
-        _thread, running = self.threads[account.aid]
-        running.clear()
         return ""
 
     async def _based_config(self, _account: Optional["Account"],
@@ -286,9 +266,6 @@ class BackendServer:
         KeyboardInterrupt event in based
         """
 
-        for _thread, running in self.threads.values():
-            print("Signalling account thread to stop.")
-            running.clear()
         return ""
 
     async def _based_quit(self, _account: Optional["Account"], _cmd: Callback,
@@ -297,7 +274,4 @@ class BackendServer:
         Based shut down event
         """
 
-        print("Waiting for all threads to finish. This might take a while.")
-        for thread, _running in self.threads.values():
-            thread.join()
         return ""

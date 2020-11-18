@@ -2,11 +2,11 @@
 slixmppd backend client
 """
 
+import asyncio
 import time
 import unicodedata
 
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
-from threading import Lock
 
 # slixmpp
 from slixmpp import ClientXMPP  # type: ignore
@@ -30,7 +30,7 @@ class BackendClient(ClientXMPP):
     for a connection to the IM network
     """
 
-    def __init__(self, account: "Account", lock: Lock) -> None:
+    def __init__(self, account: "Account", lock: asyncio.Lock) -> None:
         # jid: account.user
         # password: account.password
         ClientXMPP.__init__(self, account.user, account.password)
@@ -187,24 +187,24 @@ class BackendClient(ClientXMPP):
                            unicodedata.category(ch)[0] != "C")
         self.send_message(mto=jid, mbody=msg, mhtml=html_msg, mtype=mtype)
 
-    def enqueue_command(self, cmd: Callback, params: Tuple) -> None:
+    async def enqueue_command(self, cmd: Callback, params: Tuple) -> None:
         """
         Enqueue a command to the queue consisting of:
             command and its parameters
         """
 
-        self.lock.acquire()
+        await self.lock.acquire()
         # just add message tuple to queue
         self.queue.append((cmd, params))
         self.lock.release()
 
-    def handle_queue(self) -> None:
+    async def handle_queue(self) -> None:
         """
         Send all queued messages
         """
 
         # create temporary copy and flush queue
-        self.lock.acquire()
+        await self.lock.acquire()
         queue = self.queue[:]
         self.queue = []
         self.lock.release()
