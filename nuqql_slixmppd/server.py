@@ -111,7 +111,7 @@ class BackendServer:
         msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
         # send message
-        self.enqueue(account, cmd, (dest, msg, html_msg, msg_type))
+        await self.enqueue(account, cmd, (dest, msg, html_msg, msg_type))
 
         return ""
 
