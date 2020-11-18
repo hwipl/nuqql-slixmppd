@@ -22,6 +22,7 @@ from nuqql_based.callback import Callback
 
 if TYPE_CHECKING:   # imports for typing
     from nuqql_based.account import Account     # noqa
+    from nuqql_based.based import CallbackList
     from nuqql_based.config import Config
 
 # slixmppd version
@@ -39,13 +40,13 @@ class BackendServer:
         self.threads: Dict[int, Tuple[Thread, Event]] = {}
         self.based = Based("slixmppd", VERSION)
 
-    def start(self) -> None:
+    async def start(self) -> None:
         """
         Start server
         """
 
         # register callbacks
-        callbacks = [
+        callbacks: "CallbackList" = [
             # based events
             (Callback.BASED_CONFIG, self._based_config),
             (Callback.BASED_INTERRUPT, self._based_interrupt),
@@ -68,10 +69,10 @@ class BackendServer:
         self.based.set_callbacks(callbacks)
 
         # start based
-        self.based.start()
+        await self.based.start()
 
-    def enqueue(self, account: Optional["Account"], cmd: Callback,
-                params: Tuple) -> str:
+    async def enqueue(self, account: Optional["Account"], cmd: Callback,
+                      params: Tuple) -> str:
         """
         Helper for adding commands to the command queue of the account/client
         """
@@ -87,8 +88,8 @@ class BackendServer:
 
         return ""
 
-    def send_message(self, account: Optional["Account"], cmd: Callback,
-                     params: Tuple) -> str:
+    async def send_message(self, account: Optional["Account"], cmd: Callback,
+                           params: Tuple) -> str:
         """
         send a message to a jabber id on an account
         """
@@ -113,15 +114,15 @@ class BackendServer:
 
         return ""
 
-    def chat_send(self, account: Optional["Account"], _cmd: Callback,
-                  params: Tuple) -> str:
+    async def chat_send(self, account: Optional["Account"], _cmd: Callback,
+                        params: Tuple) -> str:
         """
         Send message to chat on account
         """
 
         chat, msg = params
-        return self.send_message(account, Callback.SEND_MESSAGE,
-                                 (chat, msg, "groupchat"))
+        return await self.send_message(account, Callback.SEND_MESSAGE,
+                                       (chat, msg, "groupchat"))
 
     @staticmethod
     def _reconnect(xmpp, last_connect: float) -> float:
@@ -185,8 +186,8 @@ class BackendServer:
             xmpp.handle_queue()
             xmpp.update_buddies()
 
-    def add_account(self, account: Optional["Account"], _cmd: Callback,
-                    _params: Tuple) -> str:
+    async def add_account(self, account: Optional["Account"], _cmd: Callback,
+                          _params: Tuple) -> str:
         """
         Add a new account (from based) and run a new slixmpp client thread for
         it
@@ -217,8 +218,8 @@ class BackendServer:
 
         return ""
 
-    def del_account(self, account: Optional["Account"], _cmd: Callback,
-                    _params: Tuple) -> str:
+    async def del_account(self, account: Optional["Account"], _cmd: Callback,
+                          _params: Tuple) -> str:
         """
         Delete an existing account (in based) and
         stop slixmpp client thread for it
@@ -255,8 +256,8 @@ class BackendServer:
                             format=log_format, datefmt="%s")
         os.chmod(log_file, stat.S_IRWXU)
 
-    def stop_thread(self, account: Optional["Account"], _cmd: Callback,
-                    _params: Tuple) -> str:
+    async def stop_thread(self, account: Optional["Account"], _cmd: Callback,
+                          _params: Tuple) -> str:
         """
         Quit backend/stop client thread
         """
@@ -268,8 +269,8 @@ class BackendServer:
         running.clear()
         return ""
 
-    def _based_config(self, _account: Optional["Account"], _cmd: Callback,
-                      params: Tuple) -> str:
+    async def _based_config(self, _account: Optional["Account"],
+                            _cmd: Callback, params: Tuple) -> str:
         """
         Config event in based
         """
@@ -278,8 +279,8 @@ class BackendServer:
         self.init_logging(config)
         return ""
 
-    def _based_interrupt(self, _account: Optional["Account"], _cmd: Callback,
-                         _params: Tuple) -> str:
+    async def _based_interrupt(self, _account: Optional["Account"],
+                               _cmd: Callback, _params: Tuple) -> str:
         """
         KeyboardInterrupt event in based
         """
@@ -289,8 +290,8 @@ class BackendServer:
             running.clear()
         return ""
 
-    def _based_quit(self, _account: Optional["Account"], _cmd: Callback,
-                    _params: Tuple) -> str:
+    async def _based_quit(self, _account: Optional["Account"], _cmd: Callback,
+                          _params: Tuple) -> str:
         """
         Based shut down event
         """
