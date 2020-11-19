@@ -2,7 +2,6 @@
 slixmppd backend server
 """
 
-import time
 import asyncio
 import html
 import re
@@ -123,42 +122,21 @@ class BackendServer:
         return await self.send_message(account, Callback.SEND_MESSAGE,
                                        (chat, msg, "groupchat"))
 
-    @staticmethod
-    def _reconnect(xmpp, last_connect: float) -> float:
-        """
-        Try to reconnect to the server if last connect is older than 10
-        seconds.
-        """
-
-        cur_time = time.time()
-        if cur_time - last_connect < 10:
-            return last_connect
-
-        print("Reconnecting:", xmpp.account.user)
-        xmpp.connect()
-        return cur_time
-
     async def _run_client(self, xmpp: BackendClient) -> None:
         """
         Run client connection (task)
         """
 
-        # start client connection
-        xmpp.connect()
-        last_connect = time.time()
-
-        # enter main loop, and keep running until "running" is set to false
-        # by the KeyboardInterrupt
+        # enter main loop
         while True:
+            # if account is offline, (re)connect
+            if xmpp.account.status == "offline":
+                xmpp.connect()
+                await asyncio.sleep(15)
+                continue
             # process other things for 0.1 seconds, then send pending outgoing
             # messages and update the (safe copy of the) buddy list
             await asyncio.sleep(0.1)
-            # if account is offline, skip other steps to avoid issues with
-            # sending commands/messages over the (uninitialized) xmpp
-            # connection
-            if xmpp.account.status == "offline":
-                last_connect = self._reconnect(xmpp, last_connect)
-                continue
             await xmpp.handle_queue()
             xmpp.update_buddies()
 
