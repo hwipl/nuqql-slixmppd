@@ -54,6 +54,7 @@ class BackendServer:
             (Callback.QUIT, self.stop_thread),
             (Callback.ADD_ACCOUNT, self.add_account),
             (Callback.DEL_ACCOUNT, self.del_account),
+            (Callback.UPDATE_BUDDIES, self.enqueue),
             (Callback.SEND_MESSAGE, self.send_message),
             (Callback.SET_STATUS, self.enqueue),
             (Callback.GET_STATUS, self.enqueue),
@@ -138,7 +139,6 @@ class BackendServer:
             # messages and update the (safe copy of the) buddy list
             await asyncio.sleep(0.1)
             await xmpp.handle_queue()
-            xmpp.update_buddies()
 
     async def run_client(self, account: Optional["Account"]) -> None:
         """

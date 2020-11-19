@@ -205,6 +205,8 @@ class BackendClient(ClientXMPP):
 
         # handle commands in queue
         for cmd, params in queue:
+            if cmd == Callback.UPDATE_BUDDIES:
+                self.update_buddies()
             if cmd == Callback.SEND_MESSAGE:
                 self._send_message(params)
             if cmd == Callback.SET_STATUS:
