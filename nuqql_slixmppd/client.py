@@ -2,7 +2,6 @@
 slixmppd backend client
 """
 
-import asyncio
 import time
 import unicodedata
 
@@ -30,7 +29,7 @@ class BackendClient(ClientXMPP):
     for a connection to the IM network
     """
 
-    def __init__(self, account: "Account", lock: asyncio.Lock) -> None:
+    def __init__(self, account: "Account") -> None:
         # jid: account.user
         # password: account.password
         ClientXMPP.__init__(self, account.user, account.password)
@@ -45,7 +44,6 @@ class BackendClient(ClientXMPP):
         self.add_event_handler("groupchat_invite", self._muc_invite)
 
         self._status: Optional[str] = None     # status configured by user
-        self.lock = lock
         self.queue: List[Tuple[Callback, Tuple]] = []
 
         self.muc_invites: Dict[str, Tuple[str, str]] = {}
@@ -193,10 +191,8 @@ class BackendClient(ClientXMPP):
             command and its parameters
         """
 
-        await self.lock.acquire()
         # just add message tuple to queue
         self.queue.append((cmd, params))
-        self.lock.release()
 
     async def handle_queue(self) -> None:
         """
@@ -204,10 +200,8 @@ class BackendClient(ClientXMPP):
         """
 
         # create temporary copy and flush queue
-        await self.lock.acquire()
         queue = self.queue[:]
         self.queue = []
-        self.lock.release()
 
         # handle commands in queue
         for cmd, params in queue:

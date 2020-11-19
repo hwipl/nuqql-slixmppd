@@ -144,12 +144,9 @@ class BackendServer:
         Run client connection as long as running Event is set to true.
         """
 
-        # create a new lock for the thread
-        lock = asyncio.Lock()
-
         # start client connection
         assert account
-        xmpp = BackendClient(account, lock)
+        xmpp = BackendClient(account)
         xmpp.register_plugin('xep_0071')    # XHTML-IM
         xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
         xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
