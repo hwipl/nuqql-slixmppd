@@ -139,7 +139,7 @@ class BackendServer:
         return cur_time
 
     async def run_client(self, account: Optional["Account"],
-                         ready: asyncio.Event, running: asyncio.Event) -> None:
+                         ready: asyncio.Event) -> None:
         """
         Run client connection as long as running Event is set to true.
         """
@@ -164,7 +164,7 @@ class BackendServer:
 
         # enter main loop, and keep running until "running" is set to false
         # by the KeyboardInterrupt
-        while running.is_set():
+        while True:
             # process other things for 0.1 seconds, then send pending outgoing
             # messages and update the (safe copy of the) buddy list
             await asyncio.sleep(0.1)
@@ -192,12 +192,8 @@ class BackendServer:
         # event to signal thread is ready
         ready = asyncio.Event()
 
-        # event to signal if thread should stop
-        running = asyncio.Event()
-        running.set()
-
         # create and start thread
-        asyncio.create_task(self.run_client(account, ready, running))
+        asyncio.create_task(self.run_client(account, ready))
 
         # wait until thread initialized everything
         await ready.wait()
