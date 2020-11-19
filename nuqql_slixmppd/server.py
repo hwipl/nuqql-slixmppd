@@ -138,29 +138,14 @@ class BackendServer:
         xmpp.connect()
         return cur_time
 
-    async def run_client(self, account: Optional["Account"],
-                         ready: asyncio.Event) -> None:
+    async def _run_client(self, xmpp: BackendClient) -> None:
         """
-        Run client connection as long as running Event is set to true.
+        Run client connection (task)
         """
 
         # start client connection
-        assert account
-        xmpp = BackendClient(account)
-        xmpp.register_plugin('xep_0071')    # XHTML-IM
-        xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
-        xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
-        xmpp.register_plugin('xep_0030')    # Service Discovery
-        xmpp.register_plugin('xep_0045')    # Multi-User Chat
-        xmpp.register_plugin('xep_0199')    # XMPP Ping
         xmpp.connect()
         last_connect = time.time()
-
-        # save client connection in active connections dictionary
-        self.connections[account.aid] = xmpp
-
-        # thread is ready to enter main loop, inform caller
-        ready.set()
 
         # enter main loop, and keep running until "running" is set to false
         # by the KeyboardInterrupt
@@ -177,6 +162,26 @@ class BackendServer:
             await xmpp.handle_queue()
             xmpp.update_buddies()
 
+    async def run_client(self, account: Optional["Account"]) -> None:
+        """
+        Run client connection
+        """
+
+        # start client connection
+        assert account
+        xmpp = BackendClient(account)
+        xmpp.register_plugin('xep_0071')    # XHTML-IM
+        xmpp.register_plugin('xep_0082')    # XMPP Date and Time Profiles
+        xmpp.register_plugin('xep_0203')    # Delayed Delivery, time stamps
+        xmpp.register_plugin('xep_0030')    # Service Discovery
+        xmpp.register_plugin('xep_0045')    # Multi-User Chat
+        xmpp.register_plugin('xep_0199')    # XMPP Ping
+
+        asyncio.create_task(self._run_client(xmpp))
+
+        # save client connection in active connections dictionary
+        self.connections[account.aid] = xmpp
+
     async def add_account(self, account: Optional["Account"], _cmd: Callback,
                           _params: Tuple) -> str:
         """
@@ -189,14 +194,8 @@ class BackendServer:
         if account.type != "xmpp":
             return ""
 
-        # event to signal thread is ready
-        ready = asyncio.Event()
-
         # create and start thread
-        asyncio.create_task(self.run_client(account, ready))
-
-        # wait until thread initialized everything
-        await ready.wait()
+        await self.run_client(account)
 
         return ""
 
