@@ -54,24 +54,24 @@ class BackendServer:
             (Callback.QUIT, self.stop_thread),
             (Callback.ADD_ACCOUNT, self.add_account),
             (Callback.DEL_ACCOUNT, self.del_account),
-            (Callback.UPDATE_BUDDIES, self.enqueue),
+            (Callback.UPDATE_BUDDIES, self.handle_command),
             (Callback.SEND_MESSAGE, self.send_message),
-            (Callback.SET_STATUS, self.enqueue),
-            (Callback.GET_STATUS, self.enqueue),
-            (Callback.CHAT_LIST, self.enqueue),
-            (Callback.CHAT_JOIN, self.enqueue),
-            (Callback.CHAT_PART, self.enqueue),
+            (Callback.SET_STATUS, self.handle_command),
+            (Callback.GET_STATUS, self.handle_command),
+            (Callback.CHAT_LIST, self.handle_command),
+            (Callback.CHAT_JOIN, self.handle_command),
+            (Callback.CHAT_PART, self.handle_command),
             (Callback.CHAT_SEND, self.chat_send),
-            (Callback.CHAT_USERS, self.enqueue),
-            (Callback.CHAT_INVITE, self.enqueue),
+            (Callback.CHAT_USERS, self.handle_command),
+            (Callback.CHAT_INVITE, self.handle_command),
         ]
         self.based.set_callbacks(callbacks)
 
         # start based
         await self.based.start()
 
-    async def enqueue(self, account: Optional["Account"], cmd: Callback,
-                      params: Tuple) -> str:
+    async def handle_command(self, account: Optional["Account"], cmd: Callback,
+                             params: Tuple) -> str:
         """
         Helper for adding commands to the command queue of the account/client
         """
@@ -83,7 +83,7 @@ class BackendServer:
             # no active connection
             return ""
 
-        await xmpp.enqueue_command(cmd, params)
+        await xmpp.handle_command(cmd, params)
 
         return ""
 
@@ -109,7 +109,8 @@ class BackendServer:
         msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
         # send message
-        await self.enqueue(account, cmd, (dest, msg, html_msg, msg_type))
+        await self.handle_command(account, cmd, (dest, msg, html_msg,
+                                                 msg_type))
 
         return ""
 
@@ -133,12 +134,9 @@ class BackendServer:
             # if account is offline, (re)connect
             if xmpp.account.status == "offline":
                 xmpp.connect()
-                await asyncio.sleep(15)
-                continue
-            # process other things for 0.1 seconds, then send pending outgoing
-            # messages and update the (safe copy of the) buddy list
-            await asyncio.sleep(0.1)
-            await xmpp.handle_queue()
+
+            # process other things/wait before reconnecting
+            await asyncio.sleep(15)
 
     async def run_client(self, account: Optional["Account"]) -> None:
         """

@@ -44,7 +44,6 @@ class BackendClient(ClientXMPP):
         self.add_event_handler("groupchat_invite", self._muc_invite)
 
         self._status: Optional[str] = None     # status configured by user
-        self.queue: List[Tuple[Callback, Tuple]] = []
 
         self.muc_invites: Dict[str, Tuple[str, str]] = {}
         self.muc_cache: List[str] = []
@@ -185,44 +184,31 @@ class BackendClient(ClientXMPP):
                            unicodedata.category(ch)[0] != "C")
         self.send_message(mto=jid, mbody=msg, mhtml=html_msg, mtype=mtype)
 
-    async def enqueue_command(self, cmd: Callback, params: Tuple) -> None:
+    async def handle_command(self, cmd: Callback, params: Tuple) -> None:
         """
-        Enqueue a command to the queue consisting of:
+        Handle a command
+        Params tuple consisting of:
             command and its parameters
         """
 
-        # just add message tuple to queue
-        self.queue.append((cmd, params))
-
-    async def handle_queue(self) -> None:
-        """
-        Send all queued messages
-        """
-
-        # create temporary copy and flush queue
-        queue = self.queue[:]
-        self.queue = []
-
-        # handle commands in queue
-        for cmd, params in queue:
-            if cmd == Callback.UPDATE_BUDDIES:
-                self.update_buddies()
-            if cmd == Callback.SEND_MESSAGE:
-                self._send_message(params)
-            if cmd == Callback.SET_STATUS:
-                self._set_status(params[0])
-            if cmd == Callback.GET_STATUS:
-                self._get_status()
-            if cmd == Callback.CHAT_LIST:
-                self._chat_list()
-            if cmd == Callback.CHAT_JOIN:
-                self._chat_join(params[0])
-            if cmd == Callback.CHAT_PART:
-                self._chat_part(params[0])
-            if cmd == Callback.CHAT_USERS:
-                self._chat_users(params[0])
-            if cmd == Callback.CHAT_INVITE:
-                self._chat_invite(params[0], params[1])
+        if cmd == Callback.UPDATE_BUDDIES:
+            self.update_buddies()
+        if cmd == Callback.SEND_MESSAGE:
+            self._send_message(params)
+        if cmd == Callback.SET_STATUS:
+            self._set_status(params[0])
+        if cmd == Callback.GET_STATUS:
+            self._get_status()
+        if cmd == Callback.CHAT_LIST:
+            self._chat_list()
+        if cmd == Callback.CHAT_JOIN:
+            self._chat_join(params[0])
+        if cmd == Callback.CHAT_PART:
+            self._chat_part(params[0])
+        if cmd == Callback.CHAT_USERS:
+            self._chat_users(params[0])
+        if cmd == Callback.CHAT_INVITE:
+            self._chat_invite(params[0], params[1])
 
     def update_buddies(self) -> None:
         """
