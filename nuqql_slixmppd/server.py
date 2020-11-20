@@ -130,13 +130,17 @@ class BackendServer:
         """
 
         # enter main loop
-        while True:
-            # if account is offline, (re)connect
-            if xmpp.account.status == "offline":
-                xmpp.connect()
+        try:
+            while True:
+                # if account is offline, (re)connect
+                if xmpp.account.status == "offline":
+                    xmpp.connect()
 
-            # process other things/wait before reconnecting
-            await asyncio.sleep(15)
+                # process other things/wait before reconnecting
+                await asyncio.sleep(15)
+        except asyncio.CancelledError:
+            xmpp.disconnect()
+            await xmpp.disconnected
 
     async def run_client(self, account: Optional["Account"]) -> None:
         """
