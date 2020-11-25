@@ -12,6 +12,7 @@ from slixmpp import ClientXMPP  # type: ignore
 # from slixmpp.exceptions import IqError, IqTimeout
 
 # nuqql-based
+from nuqql_based.buddy import Buddy
 from nuqql_based.callback import Callback
 from nuqql_based.message import Message
 
@@ -72,7 +73,6 @@ class BackendClient(ClientXMPP):
         """
 
         self.account.status = "offline"     # flag account as "offline"
-        self.account.flush_buddies()        # flush buddy list
 
     def message(self, msg) -> None:
         """
@@ -191,8 +191,8 @@ class BackendClient(ClientXMPP):
             command and its parameters
         """
 
-        if cmd == Callback.UPDATE_BUDDIES:
-            self.update_buddies()
+        if cmd == Callback.GET_BUDDIES:
+            self.get_buddies(params[0])
         if cmd == Callback.SEND_MESSAGE:
             self._send_message(params)
         if cmd == Callback.SET_STATUS:
@@ -210,9 +210,9 @@ class BackendClient(ClientXMPP):
         if cmd == Callback.CHAT_INVITE:
             self._chat_invite(params[0], params[1])
 
-    def update_buddies(self) -> None:
+    def get_buddies(self, online: bool) -> None:
         """
-        Create a "safe" copy of roster
+        Get roster/buddy list
         """
 
         # get buddies from roster
@@ -244,7 +244,7 @@ class BackendClient(ClientXMPP):
                 continue
 
             # add buddies to buddy list
-            buddy = (jid, alias, status)
+            buddy = Buddy(jid, alias, status)
             buddies.append(buddy)
 
             # cleanup invites
@@ -254,11 +254,14 @@ class BackendClient(ClientXMPP):
         # handle pending invites as buddies
         for invite in self.muc_invites.values():
             _user, chat = invite
-            buddy = (chat, chat, "GROUP_CHAT_INVITE")
+            buddy = Buddy(chat, chat, "GROUP_CHAT_INVITE")
             buddies.append(buddy)
 
-        # update buddy list
-        self.account.update_buddies(buddies)
+        # return buddy list
+        for buddy in buddies:
+            if online and buddy.status != "available":
+                continue
+            self.account.receive_msg(Message.buddy(self.account, buddy))
 
     def _set_status(self, status: str) -> None:
         """
