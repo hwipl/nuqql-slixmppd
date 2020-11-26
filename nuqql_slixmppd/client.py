@@ -12,7 +12,6 @@ from slixmpp import ClientXMPP  # type: ignore
 # from slixmpp.exceptions import IqError, IqTimeout
 
 # nuqql-based
-from nuqql_based.buddy import Buddy
 from nuqql_based.callback import Callback
 from nuqql_based.message import Message
 
@@ -216,7 +215,6 @@ class BackendClient(ClientXMPP):
         """
 
         # get buddies from roster
-        buddies = []
         for jid in self.client_roster.keys():
             alias = self.client_roster[jid]["name"]
             connections = self.client_roster.presence(jid)
@@ -243,25 +241,24 @@ class BackendClient(ClientXMPP):
                 # this is a muc and we are not in it any more, filter it
                 continue
 
-            # add buddies to buddy list
-            buddy = Buddy(jid, alias, status)
-            buddies.append(buddy)
+            # send buddy message
+            if online and status != "available":
+                continue
+            msg = Message.buddy(self.account, jid, alias, status)
+            self.account.receive_msg(msg)
 
             # cleanup invites
             if jid in self.muc_invites:
                 del self.muc_invites[jid]
 
         # handle pending invites as buddies
+        if online:
+            # invites are not "online"
+            return
         for invite in self.muc_invites.values():
             _user, chat = invite
-            buddy = Buddy(chat, chat, "GROUP_CHAT_INVITE")
-            buddies.append(buddy)
-
-        # return buddy list
-        for buddy in buddies:
-            if online and buddy.status != "available":
-                continue
-            self.account.receive_msg(Message.buddy(self.account, buddy))
+            msg = Message.buddy(self.account, chat, chat, "GROUP_CHAT_INVITE")
+            self.account.receive_msg(msg)
 
     def _set_status(self, status: str) -> None:
         """
