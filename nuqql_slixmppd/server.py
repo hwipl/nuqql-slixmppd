@@ -54,6 +54,7 @@ class BackendServer:
             # nuqql messages
             (Callback.QUIT, self.stop_thread),
             (Callback.HELP_WELCOME, self._help_welcome),
+            (Callback.HELP_ACCOUNT_ADD, self._help_account_add),
             (Callback.ADD_ACCOUNT, self.add_account),
             (Callback.DEL_ACCOUNT, self.del_account),
             (Callback.GET_BUDDIES, self.handle_command),
@@ -215,6 +216,20 @@ class BackendServer:
         logging.basicConfig(filename=log_file, level=loglevel,
                             format=log_format, datefmt="%s")
         os.chmod(log_file, stat.S_IRWXU)
+
+    async def _help_account_add(self, _account: Optional["Account"],
+                                _cmd: Callback, _params: Tuple) -> str:
+        """
+        Handle account add help event
+        """
+
+        add_help = Message.info("You do not have any accounts configured.")
+        add_help += Message.info("You can add a new xmpp account with the "
+                                 "following command: "
+                                 "account add xmpp <jabber ID> <password>")
+        add_help += Message.info("Example: account add xmpp "
+                                 "dummy@jabber.org MyPassword")
+        return add_help
 
     async def _help_welcome(self, _account: Optional["Account"],
                             _cmd: Callback, _params: Tuple) -> str:
