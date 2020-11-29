@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Dict, Optional, Tuple
 # nuqql-based
 from nuqql_based.based import Based
 from nuqql_based.callback import Callback
+from nuqql_based.message import Message
 
 # slixmppd
 from nuqql_slixmppd.client import BackendClient
@@ -52,6 +53,7 @@ class BackendServer:
 
             # nuqql messages
             (Callback.QUIT, self.stop_thread),
+            (Callback.HELP_WELCOME, self._help_welcome),
             (Callback.ADD_ACCOUNT, self.add_account),
             (Callback.DEL_ACCOUNT, self.del_account),
             (Callback.GET_BUDDIES, self.handle_command),
@@ -213,6 +215,19 @@ class BackendServer:
         logging.basicConfig(filename=log_file, level=loglevel,
                             format=log_format, datefmt="%s")
         os.chmod(log_file, stat.S_IRWXU)
+
+    async def _help_welcome(self, _account: Optional["Account"],
+                            _cmd: Callback, _params: Tuple) -> str:
+        """
+        Handle welcome help message event
+        """
+
+        welcome = Message.info(f"Welcome to nuqql-slixmppd v{VERSION}!")
+        welcome += Message.info("Enter \"help\" for a list of available "
+                                "commands and their help texts")
+        if self.based.config.get_push_accounts():
+            welcome += Message.info("Listing your accounts:")
+        return welcome
 
     async def stop_thread(self, _account: Optional["Account"], _cmd: Callback,
                           _params: Tuple) -> str:
