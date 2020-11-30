@@ -167,9 +167,11 @@ class BackendServer:
         stop slixmpp client thread for it
         """
 
-        # stop thread
+        # stop client
         assert account
-        # TODO: stop client?
+        xmpp = self.connections[account.aid]
+        xmpp.disconnect()
+        await xmpp.disconnected
 
         # cleanup
         del self.connections[account.aid]
