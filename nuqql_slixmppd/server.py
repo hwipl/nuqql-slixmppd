@@ -2,7 +2,6 @@
 slixmppd backend server
 """
 
-import asyncio
 import html
 import re
 import logging
@@ -48,6 +47,7 @@ class BackendServer:
         callbacks: "CallbackList" = [
             # based events
             (Callback.BASED_CONFIG, self._based_config),
+            (Callback.BASED_QUIT, self._based_quit),
 
             # nuqql messages
             (Callback.HELP_WELCOME, self._help_welcome),
@@ -124,24 +124,6 @@ class BackendServer:
         return await self.send_message(account, Callback.SEND_MESSAGE,
                                        (chat, msg, "groupchat"))
 
-    async def _run_client(self, xmpp: BackendClient) -> None:
-        """
-        Run client connection (task)
-        """
-
-        # enter main loop
-        try:
-            while True:
-                # if account is offline, (re)connect
-                if xmpp.account.status == "offline":
-                    xmpp.connect()
-
-                # process other things/wait before reconnecting
-                await asyncio.sleep(15)
-        except asyncio.CancelledError:
-            xmpp.disconnect()
-            await xmpp.disconnected
-
     async def run_client(self, account: Optional["Account"]) -> None:
         """
         Run client connection
@@ -156,8 +138,7 @@ class BackendServer:
         xmpp.register_plugin('xep_0030')    # Service Discovery
         xmpp.register_plugin('xep_0045')    # Multi-User Chat
         xmpp.register_plugin('xep_0199')    # XMPP Ping
-
-        asyncio.create_task(self._run_client(xmpp))
+        xmpp.connect()
 
         # save client connection in active connections dictionary
         self.connections[account.aid] = xmpp
@@ -249,4 +230,15 @@ class BackendServer:
 
         config = params[0]
         self.init_logging(config)
+        return ""
+
+    async def _based_quit(self, _account: Optional["Account"], _cmd: Callback,
+                          _params: Tuple) -> str:
+        """
+        Based shut down event
+        """
+
+        for xmpp in self.connections.values():
+            xmpp.disconnect()
+            await xmpp.disconnected
         return ""
