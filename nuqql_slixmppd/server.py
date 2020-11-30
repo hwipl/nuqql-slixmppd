@@ -49,7 +49,6 @@ class BackendServer:
             # based events
             (Callback.BASED_CONFIG, self._based_config),
             (Callback.BASED_INTERRUPT, self._based_interrupt),
-            (Callback.BASED_QUIT, self._based_quit),
 
             # nuqql messages
             (Callback.HELP_WELCOME, self._help_welcome),
@@ -257,14 +256,6 @@ class BackendServer:
                                _cmd: Callback, _params: Tuple) -> str:
         """
         KeyboardInterrupt event in based
-        """
-
-        return ""
-
-    async def _based_quit(self, _account: Optional["Account"], _cmd: Callback,
-                          _params: Tuple) -> str:
-        """
-        Based shut down event
         """
 
         return ""
