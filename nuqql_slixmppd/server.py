@@ -52,7 +52,6 @@ class BackendServer:
             (Callback.BASED_QUIT, self._based_quit),
 
             # nuqql messages
-            (Callback.QUIT, self.stop_thread),
             (Callback.HELP_WELCOME, self._help_welcome),
             (Callback.HELP_ACCOUNT_ADD, self._help_account_add),
             (Callback.ADD_ACCOUNT, self.add_account),
@@ -243,14 +242,6 @@ class BackendServer:
         if self.based.config.get_push_accounts():
             welcome += Message.info("Listing your accounts:")
         return welcome
-
-    async def stop_thread(self, _account: Optional["Account"], _cmd: Callback,
-                          _params: Tuple) -> str:
-        """
-        Quit backend/stop client thread
-        """
-
-        return ""
 
     async def _based_config(self, _account: Optional["Account"],
                             _cmd: Callback, params: Tuple) -> str:
