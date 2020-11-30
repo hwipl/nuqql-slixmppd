@@ -48,7 +48,6 @@ class BackendServer:
         callbacks: "CallbackList" = [
             # based events
             (Callback.BASED_CONFIG, self._based_config),
-            (Callback.BASED_INTERRUPT, self._based_interrupt),
 
             # nuqql messages
             (Callback.HELP_WELCOME, self._help_welcome),
@@ -250,12 +249,4 @@ class BackendServer:
 
         config = params[0]
         self.init_logging(config)
-        return ""
-
-    async def _based_interrupt(self, _account: Optional["Account"],
-                               _cmd: Callback, _params: Tuple) -> str:
-        """
-        KeyboardInterrupt event in based
-        """
-
         return ""
