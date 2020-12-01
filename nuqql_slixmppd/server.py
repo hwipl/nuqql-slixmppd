@@ -170,6 +170,7 @@ class BackendServer:
         # stop client
         assert account
         xmpp = self.connections[account.aid]
+        xmpp.shutdown = True
         xmpp.disconnect()
         await xmpp.disconnected
 
@@ -241,6 +242,7 @@ class BackendServer:
         """
 
         for xmpp in self.connections.values():
+            xmpp.shutdown = True
             xmpp.disconnect()
             await xmpp.disconnected
         return ""

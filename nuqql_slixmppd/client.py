@@ -44,6 +44,7 @@ class BackendClient(ClientXMPP):
         self.add_event_handler("groupchat_invite", self._muc_invite)
 
         self._status: Optional[str] = None     # status configured by user
+        self.shutdown = False
 
         self.muc_invites: Dict[str, Tuple[str, str]] = {}
         self.muc_cache: List[str] = []
@@ -72,6 +73,9 @@ class BackendClient(ClientXMPP):
         """
 
         self.account.status = "offline"     # flag account as "offline"
+        if not self.shutdown:
+            # not shutting down -> reconnect
+            self.connect()
 
     def message(self, msg) -> None:
         """
