@@ -318,7 +318,7 @@ class BackendClient(ClientXMPP):
                                          nick,
                                          # If a room password is needed, use:
                                          # password=the_room_password,
-                                         wait=True)
+                                         )
         self.add_event_handler("muc::%s::got_online" % chat, self.muc_online)
         self.add_event_handler("muc::%s::got_offline" % chat, self.muc_offline)
         self.muc_cache.append(chat)
