@@ -48,7 +48,7 @@ class BackendClient(ClientXMPP):
 
         self.muc_invites: Dict[str, Tuple[str, str]] = {}
         self.muc_cache: List[str] = []
-        self.muc_filter_own = True
+        self.muc_filter_own = False
 
     def _session_start(self, _event) -> None:
         """
