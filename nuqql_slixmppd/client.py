@@ -113,9 +113,15 @@ class BackendClient(ClientXMPP):
         if msg['type'] == 'groupchat':
             # filter own messages
             chat = msg['from'].bare
+            sender = msg['mucnick']
             nick = self.plugin['xep_0045'].our_nicks[chat]
-            if self.muc_filter_own and msg['mucnick'] == nick:
+            if self.muc_filter_own and sender == nick:
                 return
+
+            # rewrite sender of own messages to "<self>"
+            if sender == nick:
+                sender = "<self>"
+
             # if message contains a timestamp, use it
             tstamp = msg['delay']['stamp']
             if tstamp:
@@ -128,7 +134,7 @@ class BackendClient(ClientXMPP):
             # save timestamp and message in messages list and history
             tstamp = int(tstamp)
             formatted_msg = Message.chat_msg(
-                self.account, tstamp, msg["mucnick"], chat, msg["body"])
+                self.account, tstamp, sender, chat, msg["body"])
             self.account.receive_msg(formatted_msg)
 
     def _muc_presence(self, presence, status) -> None:
