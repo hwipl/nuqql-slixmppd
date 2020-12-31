@@ -48,7 +48,6 @@ class BackendClient(ClientXMPP):
 
         self.muc_invites: Dict[str, Tuple[str, str]] = {}
         self.muc_cache: List[str] = []
-        self.muc_filter_own = False
 
     def _session_start(self, _event) -> None:
         """
@@ -115,7 +114,7 @@ class BackendClient(ClientXMPP):
             chat = msg['from'].bare
             sender = msg['mucnick']
             nick = self.plugin['xep_0045'].our_nicks[chat]
-            if self.muc_filter_own and sender == nick:
+            if self.account.config.get_filter_own() and sender == nick:
                 return
 
             # rewrite sender of own messages to "<self>"
