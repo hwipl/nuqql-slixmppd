@@ -25,7 +25,7 @@ if TYPE_CHECKING:   # imports for typing
     from nuqql_based.config import Config
 
 # slixmppd version
-VERSION = "0.6.0"
+VERSION = "0.7.0"
 
 
 class BackendServer:
