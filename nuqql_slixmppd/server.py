@@ -197,7 +197,8 @@ class BackendServer:
                             format=log_format, datefmt="%s")
         os.chmod(log_file, stat.S_IRWXU)
 
-    async def _help_account_add(self, _account: Optional["Account"],
+    @staticmethod
+    async def _help_account_add(_account: Optional["Account"],
                                 _cmd: Callback, _params: Tuple) -> str:
         """
         Handle account add help event
