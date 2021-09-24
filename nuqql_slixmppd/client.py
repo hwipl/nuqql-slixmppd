@@ -324,8 +324,8 @@ class BackendClient(ClientXMPP):
                                          # If a room password is needed, use:
                                          # password=the_room_password,
                                          )
-        self.add_event_handler("muc::%s::got_online" % chat, self.muc_online)
-        self.add_event_handler("muc::%s::got_offline" % chat, self.muc_offline)
+        self.add_event_handler(f"muc::{chat}::got_online", self.muc_online)
+        self.add_event_handler(f"muc::{chat}::got_offline", self.muc_offline)
         self.muc_cache.append(chat)
 
     def _chat_part(self, chat: str) -> None:
@@ -337,9 +337,9 @@ class BackendClient(ClientXMPP):
         if chat in self.plugin['xep_0045'].get_joined_rooms():
             nick = self.plugin['xep_0045'].our_nicks[chat]
             self.plugin['xep_0045'].leave_muc(chat, nick)
-            self.del_event_handler("muc::%s::got_online" % chat,
+            self.del_event_handler(f"muc::{chat}::got_online",
                                    self.muc_online)
-            self.del_event_handler("muc::%s::got_offline" % chat,
+            self.del_event_handler(f"muc::{chat}::got_offline",
                                    self.muc_offline)
             # keep muc in muc_cache to filter it from buddy list
 
