@@ -318,7 +318,7 @@ class BackendClient(ClientXMPP):
         Join chat on account
         """
 
-        nick = self.jid
+        nick = self.boundjid.bare
         await self.plugin['xep_0045'].join_muc_wait(chat, nick,
                                                     # If a room password is
                                                     # needed, use: password=
