@@ -210,7 +210,7 @@ class BackendClient(ClientXMPP):
         if cmd == Callback.CHAT_LIST:
             self._chat_list()
         if cmd == Callback.CHAT_JOIN:
-            self._chat_join(params[0])
+            await self._chat_join(params[0])
         if cmd == Callback.CHAT_PART:
             self._chat_part(params[0])
         if cmd == Callback.CHAT_USERS:
@@ -313,16 +313,17 @@ class BackendClient(ClientXMPP):
             self.account.receive_msg(Message.chat_list(
                 self.account, chat, chat_alias, nick))
 
-    def _chat_join(self, chat: str) -> None:
+    async def _chat_join(self, chat: str) -> None:
         """
         Join chat on account
         """
 
         nick = self.jid
-        self.plugin['xep_0045'].join_muc_wait(chat, nick,
-                                              # If a room password is needed,
-                                              # use: password=the_room_password
-                                              )
+        await self.plugin['xep_0045'].join_muc_wait(chat, nick,
+                                                    # If a room password is
+                                                    # needed, use: password=
+                                                    # the_room_password
+                                                    )
         self.add_event_handler(f"muc::{chat}::got_online", self.muc_online)
         self.add_event_handler(f"muc::{chat}::got_offline", self.muc_offline)
         self.muc_cache.append(chat)
