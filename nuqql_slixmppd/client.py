@@ -319,11 +319,10 @@ class BackendClient(ClientXMPP):
         """
 
         nick = self.jid
-        self.plugin['xep_0045'].join_muc(chat,
-                                         nick,
-                                         # If a room password is needed, use:
-                                         # password=the_room_password,
-                                         )
+        self.plugin['xep_0045'].join_muc_wait(chat, nick,
+                                              # If a room password is needed,
+                                              # use: password=the_room_password
+                                              )
         self.add_event_handler(f"muc::{chat}::got_online", self.muc_online)
         self.add_event_handler(f"muc::{chat}::got_offline", self.muc_offline)
         self.muc_cache.append(chat)
