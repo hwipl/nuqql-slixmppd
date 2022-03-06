@@ -2,6 +2,7 @@
 slixmppd backend client
 """
 
+import logging
 import time
 import unicodedata
 
@@ -10,6 +11,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 # slixmpp
 from slixmpp import ClientXMPP  # type: ignore
 # from slixmpp.exceptions import IqError, IqTimeout
+from slixmpp.exceptions import PresenceError  # type: ignore
 
 # nuqql-based
 from nuqql_based.callback import Callback
@@ -319,11 +321,17 @@ class BackendClient(ClientXMPP):
         """
 
         nick = self.boundjid.bare
-        await self.plugin['xep_0045'].join_muc_wait(chat, nick,
-                                                    # If a room password is
-                                                    # needed, use: password=
-                                                    # the_room_password
-                                                    )
+        try:
+            # if a room password is needed, use: password=the_room_password
+            await self.plugin['xep_0045'].join_muc_wait(chat, nick)
+        except PresenceError as ex:
+            logging.error(ex)
+            msg = Message.chat_msg(self.account,
+                                   int(time.time()),
+                                   "<self>",
+                                   chat,
+                                   "Error joining chat, part chat to clean up")
+            self.account.receive_msg(msg)
         self.add_event_handler(f"muc::{chat}::got_online", self.muc_online)
         self.add_event_handler(f"muc::{chat}::got_offline", self.muc_offline)
         self.muc_cache.append(chat)
