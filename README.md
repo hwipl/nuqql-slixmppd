@@ -72,6 +72,8 @@ optional arguments:
 
 ## Changes
 
+* devel:
+  * Update slixmpp to v1.8.0, which should fix python 3.10 issues
 * v0.7.0:
   * Update nuqql-based to v0.3.0, switch to asyncio, require python
     version >= 3.7.
