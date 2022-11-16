@@ -72,6 +72,8 @@ optional arguments:
 
 ## Changes
 
+* devel:
+  * Update slixmpp to v1.8.3
 * v0.8.0:
   * Update slixmpp to v1.8.0, which should fix python 3.10 issues
 * v0.7.0:
