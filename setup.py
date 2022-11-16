@@ -61,5 +61,5 @@ setup(
     },
     classifiers=CLASSIFIERS,
     python_requires='>=3.7',
-    install_requires=["nuqql-based~=0.3.0", "slixmpp~=1.8.2"],
+    install_requires=["nuqql-based~=0.3.0", "slixmpp~=1.8.3"],
 )
