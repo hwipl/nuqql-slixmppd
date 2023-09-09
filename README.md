@@ -1,7 +1,7 @@
 # nuqql-slixmppd
 
 nuqql-slixmppd is a network daemon that implements the nuqql interface and uses
-[slixmpp](https://lab.louiz.org/poezio/slixmpp) to connect to XMPP chat
+[slixmpp](https://codeberg.org/poezio/slixmpp) to connect to XMPP chat
 networks. It can be used as a backend for
 [nuqql](https://github.com/hwipl/nuqql) or as a standalone chat client daemon.
 
