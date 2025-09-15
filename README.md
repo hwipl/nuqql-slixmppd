@@ -7,7 +7,7 @@ networks. It can be used as a backend for
 
 nuqql-slixmppd's dependencies are:
 * [nuqql-based](https://github.com/hwipl/nuqql-based)
-* [slixmpp](https://lab.louiz.org/poezio/slixmpp)
+* [slixmpp](https://codeberg.org/poezio/slixmpp)
 * [daemon](https://pypi.org/project/python-daemon/) (optional)
 
 
