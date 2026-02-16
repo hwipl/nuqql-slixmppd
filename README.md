@@ -72,6 +72,8 @@ optional arguments:
 
 ## Changes
 
+* devel:
+  * Update slixmpp to v1.13.2
 * v0.8.7:
   * Update slixmpp to v1.12.0
 * v0.8.6:
